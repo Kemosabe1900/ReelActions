@@ -74,27 +74,18 @@
         /* Nav */
         nav {
             position: fixed;
-            top: 0; left: 0; right: 0;
+            top: -100px;
+            left: 0; right: 0;
             padding: 30px 52px;
-            padding-top: calc(30px + env(safe-area-inset-top));
+            padding-top: calc(100px + 30px + env(safe-area-inset-top));
             display: flex;
             justify-content: space-between;
             align-items: center;
             z-index: 10;
-            background: linear-gradient(to bottom, var(--bg) 80%, transparent);
+            background: var(--bg);
             opacity: 0;
             animation: fadeIn 1s ease forwards;
             animation-delay: 0.05s;
-        }
-
-        nav::before {
-            content: '';
-            position: absolute;
-            top: -100px;
-            left: 0; right: 0;
-            height: 100px;
-            background: var(--bg);
-            z-index: -1;
         }
 
         .logo {

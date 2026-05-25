@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-from app.api import videos, jobs, profile, chat, admin, push_tokens, admin_dashboard, webhooks
+from app.api import videos, jobs, profile, chat, admin, push_tokens, admin_dashboard, webhooks, waitlist
 from app.workers.scheduler import run_streak_reminder, run_weekly_recap
 from app.services.alerting import alert
 from app.limiter import limiter
@@ -68,3 +68,4 @@ app.include_router(admin.router, prefix="/api/v1")
 app.include_router(push_tokens.router, prefix="/api/v1")
 app.include_router(admin_dashboard.router, prefix="/api/v1")
 app.include_router(webhooks.router, prefix="/api/v1")
+app.include_router(waitlist.router, prefix="/api/v1")

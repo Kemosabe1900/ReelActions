@@ -374,8 +374,8 @@
 
         /* Mobile */
         @media (max-width: 600px) {
-            nav    { padding: 20px 24px; }
-            main   { padding: 120px 24px 130px; }
+            nav    { padding: 20px 24px; padding-top: calc(100px + 20px + env(safe-area-inset-top)); }
+            main   { padding: 160px 24px 100px; justify-content: flex-start; }
             footer { padding: 16px 24px; }
 
             .footer-left { display: none; }

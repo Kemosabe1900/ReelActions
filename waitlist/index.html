@@ -429,26 +429,30 @@
 </footer>
 
 <script>
-    // Replace with your deployed backend URL
-    const API_BASE = 'https://your-backend.up.railway.app/api/v1';
+    const SUPABASE_URL = 'https://tvjnuczzlpnydxznbhdd.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2am51Y3p6bHBueWR4em5iaGRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5NDA2MzcsImV4cCI6MjA5MzUxNjYzN30.g5jV3PEPERxCzENKPdpyoPX-ThHNqhaABaYqO5JGKHE';
 
     async function loadCount() {
         try {
-            const res = await fetch(`${API_BASE}/waitlist/count`);
-            if (!res.ok) return;
-            const { count } = await res.json();
-            if (count >= 10) {
-                document.getElementById('counterText').textContent =
-                    `${count.toLocaleString()} people already waiting`;
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?select=*`, {
+                headers: { 'apikey': SUPABASE_KEY, 'Prefer': 'count=exact', 'Range': '0-0' }
+            });
+            const range = res.headers.get('Content-Range');
+            if (range) {
+                const count = parseInt(range.split('/')[1]);
+                if (count >= 10) {
+                    document.getElementById('counterText').textContent =
+                        `${count.toLocaleString()} people already waiting`;
+                }
             }
         } catch (_) {}
     }
 
     async function handleSubmit() {
-        const input   = document.getElementById('emailInput');
-        const btn     = document.getElementById('submitBtn');
-        const errEl   = document.getElementById('errorStatus');
-        const email   = input.value.trim();
+        const input = document.getElementById('emailInput');
+        const btn   = document.getElementById('submitBtn');
+        const errEl = document.getElementById('errorStatus');
+        const email = input.value.trim();
 
         errEl.classList.remove('error');
         input.classList.remove('invalid');
@@ -463,14 +467,18 @@
         btn.textContent = '...';
 
         try {
-            const res = await fetch(`${API_BASE}/waitlist`, {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/waitlist`, {
                 method : 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body   : JSON.stringify({ email }),
+                headers: {
+                    'apikey'      : SUPABASE_KEY,
+                    'Content-Type': 'application/json',
+                    'Prefer'      : 'return=minimal',
+                },
+                body: JSON.stringify({ email }),
             });
 
             if (res.ok || res.status === 409) {
-                document.getElementById('formBlock').style.display    = 'none';
+                document.getElementById('formBlock').style.display = 'none';
                 document.getElementById('successBlock').classList.add('visible');
             } else {
                 throw new Error();
@@ -485,6 +493,10 @@
     document.getElementById('submitBtn').addEventListener('click', handleSubmit);
     document.getElementById('emailInput').addEventListener('keydown', e => {
         if (e.key === 'Enter') handleSubmit();
+    });
+    document.getElementById('emailInput').addEventListener('input', () => {
+        document.getElementById('emailInput').classList.remove('invalid');
+        document.getElementById('errorStatus').classList.remove('error');
     });
 
     loadCount();

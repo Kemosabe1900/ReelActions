@@ -1,0 +1,69 @@
+from datetime import datetime, timezone, timedelta
+from fastapi import APIRouter, Depends
+from app.dependencies import get_current_user
+from app.database import get_db
+
+router = APIRouter(tags=["profile"])
+
+
+def calculate_streak(tried_at_values: list) -> int:
+    dates = set()
+    for val in tried_at_values:
+        if val:
+            try:
+                d = datetime.fromisoformat(val.replace('Z', '+00:00')).date()
+                dates.add(d)
+            except Exception:
+                pass
+
+    if not dates:
+        return 0
+
+    today = datetime.now(timezone.utc).date()
+    start = today if today in dates else today - timedelta(days=1)
+    if start not in dates:
+        return 0
+
+    streak = 0
+    current = start
+    while current in dates:
+        streak += 1
+        current -= timedelta(days=1)
+    return streak
+
+
+@router.get("/profile")
+def get_profile(user_id: str = Depends(get_current_user)):
+    db = get_db()
+    profile_result = (
+        db.table("profiles").select("*")
+        .eq("id", user_id).limit(1).execute()
+    )
+
+    if not profile_result.data:
+        db.table("profiles").insert({"id": user_id}).execute()
+        profile_result = (
+            db.table("profiles").select("*")
+            .eq("id", user_id).limit(1).execute()
+        )
+
+    videos_result = db.table("videos").select("tried,tried_at").eq("user_id", user_id).execute()
+    total = len(videos_result.data)
+    tried = sum(1 for v in videos_result.data if v["tried"])
+    tried_at_values = [v["tried_at"] for v in videos_result.data if v.get("tried_at")]
+    streak = calculate_streak(tried_at_values)
+
+    email = None
+    try:
+        user_response = db.auth.admin.get_user_by_id(user_id)
+        email = user_response.user.email if user_response.user else None
+    except Exception:
+        pass
+
+    return {
+        **profile_result.data[0],
+        "current_streak": streak,
+        "explorer_tried": tried,
+        "explorer_total": total,
+        "email": email,
+    }

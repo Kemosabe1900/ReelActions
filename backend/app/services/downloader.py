@@ -1,0 +1,121 @@
+import base64
+import glob
+import json
+import os
+import subprocess
+import tempfile
+from pathlib import Path
+
+IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.webp'}
+
+
+def is_image_post(url: str) -> bool:
+    # Fast path: known video platforms/patterns — no network call needed
+    if "tiktok.com" in url:
+        return "/photo/" in url
+    if "instagram.com/reel/" in url:
+        return False
+    if "youtube.com" in url or "youtu.be" in url:
+        return False
+    # Ambiguous (e.g. instagram.com/p/) — check metadata
+    if "instagram.com" not in url:
+        return False
+    cmd = ["yt-dlp", "--dump-json", "--no-playlist", "--no-download", url]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    if result.returncode != 0:
+        return False
+    try:
+        info = json.loads(result.stdout.split('\n')[0])
+        ext = info.get('ext', '')
+        if ext in ('jpg', 'jpeg', 'png', 'webp', 'gif'):
+            return True
+        formats = info.get('formats', [])
+        has_audio = any(f.get('acodec') not in (None, 'none') for f in formats)
+        return not has_audio and bool(formats)
+    except Exception:
+        return False
+
+
+def download_images(url: str, job_id: str) -> list[str]:
+    """Download images from URL, return list of base64-encoded JPEG strings (max 5)."""
+    tmp = tempfile.mkdtemp()
+    cmd = [
+        "yt-dlp",
+        "--output", os.path.join(tmp, f"{job_id}_%(playlist_index)s.%(ext)s"),
+        url,
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    if result.returncode != 0:
+        raise RuntimeError(f"yt-dlp image download failed: {result.stderr.strip()[:500]}")
+
+    matches = sorted(
+        f for f in glob.glob(os.path.join(tmp, f"{job_id}_*"))
+        if Path(f).suffix.lower() in IMAGE_EXTS
+    )
+    if not matches:
+        raise RuntimeError("No image files found after download")
+
+    b64_images = []
+    for path in matches[:5]:
+        b64_images.append(base64.b64encode(Path(path).read_bytes()).decode())
+        os.remove(path)
+
+    try:
+        os.rmdir(tmp)
+    except OSError:
+        pass
+
+    return b64_images
+
+
+def _download_via_ytdlp(url: str, job_id: str) -> str:
+    tmp = tempfile.gettempdir()
+    cmd = [
+        "yt-dlp",
+        "--format", "bestaudio/best",
+        "--extract-audio",
+        "--audio-format", "mp3",
+        "--audio-quality", "5",
+        "--no-playlist",
+        "--max-filesize", "50m",
+        "--output", os.path.join(tmp, f"{job_id}.%(ext)s"),
+        url,
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    if result.returncode != 0:
+        raise RuntimeError(f"yt-dlp failed: {result.stderr.strip()[:500]}")
+    if result.stderr.strip():
+        print(f"[yt-dlp stderr] {result.stderr.strip()[:500]}")
+    matches = glob.glob(os.path.join(tmp, f"{job_id}.*"))
+    if not matches:
+        raise RuntimeError(
+            f"Audio file not found after download. "
+            f"stdout={result.stdout.strip()[:200]} stderr={result.stderr.strip()[:200]}"
+        )
+    return matches[0]
+
+
+def download_audio(url: str, job_id: str) -> str:
+    """Download audio from a URL. Routes TikTok through TikWM, everything else via yt-dlp."""
+    if "tiktok.com" in url:
+        from app.services.tiktok_scraper import download_tiktok_audio
+        return download_tiktok_audio(url, job_id)
+    return _download_via_ytdlp(url, job_id)
+
+
+def detect_platform(url: str) -> str:
+    if "tiktok.com" in url:
+        return "tiktok"
+    if "instagram.com" in url:
+        return "instagram"
+    if "youtube.com" in url or "youtu.be" in url:
+        return "youtube"
+    return "other"
+
+
+def cleanup(path: str) -> None:
+    try:
+        if path and os.path.exists(path):
+            os.remove(path)
+    except OSError:
+        pass

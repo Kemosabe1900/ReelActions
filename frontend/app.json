@@ -1,0 +1,66 @@
+{
+  "expo": {
+    "name": "ReelActions",
+    "slug": "reelactions",
+    "scheme": "reelactions",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0e150e"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.kemosabe1900.reelactions"
+    },
+    "android": {
+      "package": "com.kemosabe1900.reelactions",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0e150e"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "203eccfd-74b7-4d99-910c-acad3b1cab68"
+      }
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#22c55e",
+          "sounds": [],
+          "mode": "production"
+        }
+      ],
+      [
+        "expo-share-intent",
+        {
+          "iosActivationRules": {
+            "NSExtensionActivationSupportsWebURLWithMaxCount": 1,
+            "NSExtensionActivationSupportsWebPageWithMaxCount": 1
+          },
+          "androidIntentFilters": [
+            "text/*"
+          ],
+          "iosShareExtensionName": "ReelActions Share"
+        }
+      ],
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-apple-authentication"
+    ]
+  }
+}

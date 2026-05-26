@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ReelActions: Join the Waitlist</title>
     <meta name="description" content="Turn TikToks and Reels into a searchable knowledge base. Join the waitlist.">
     <meta property="og:title" content="ReelActions: Your saves, finally searchable.">
@@ -11,9 +11,6 @@
     <meta property="og:url" content="https://reelactions-waitlist.vercel.app">
     <meta name="twitter:card" content="summary">
     <meta name="twitter:image" content="https://reelactions-waitlist.vercel.app/logo.png">
-    <meta name="theme-color" content="#080808">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;1,9..144,200;1,9..144,300;1,9..144,500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -29,14 +26,14 @@
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        html { font-size: 16px; scroll-behavior: smooth; background: #080808; }
+        html { font-size: 16px; scroll-behavior: smooth; }
 
         body {
             background: var(--bg);
             color: var(--text);
             font-family: 'Instrument Sans', sans-serif;
             min-height: 100vh;
-            overflow-x: clip;
+            overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
@@ -71,28 +68,15 @@
             z-index: 0;
         }
 
-        /* Top mask — extends above viewport so nothing bleeds through on scroll */
-        .top-mask {
-            position: fixed;
-            top: -500px; left: 0; right: 0;
-            height: calc(500px + env(safe-area-inset-top) + 120px);
-            background: var(--bg);
-            z-index: 9;
-            pointer-events: none;
-        }
-
         /* Nav */
         nav {
             position: fixed;
-            top: 0;
-            left: 0; right: 0;
+            top: 0; left: 0; right: 0;
             padding: 30px 52px;
-            padding-top: calc(30px + env(safe-area-inset-top));
             display: flex;
             justify-content: space-between;
             align-items: center;
             z-index: 10;
-            background: var(--bg);
             opacity: 0;
             animation: fadeIn 1s ease forwards;
             animation-delay: 0.05s;
@@ -347,12 +331,10 @@
             position: fixed;
             bottom: 0; left: 0; right: 0;
             padding: 22px 52px;
-            padding-bottom: calc(22px + env(safe-area-inset-bottom));
             display: flex;
             justify-content: space-between;
             align-items: center;
             border-top: 1px solid var(--border);
-            background: var(--bg);
             z-index: 10;
             opacity: 0;
             animation: fadeIn 1s ease forwards;
@@ -385,9 +367,9 @@
 
         /* Mobile */
         @media (max-width: 600px) {
-            nav    { padding: 16px 24px; padding-top: calc(16px + env(safe-area-inset-top)); }
-            main   { padding: 110px 24px 120px; justify-content: flex-start; }
-            footer { padding: 14px 24px; padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+            nav    { padding: 20px 24px; }
+            main   { padding: 120px 24px 130px; }
+            footer { padding: 16px 24px; }
 
             .footer-left { display: none; }
             .footer-right { margin: 0 auto; }
@@ -401,7 +383,6 @@
 <body>
 
 <div class="bg-glyph" aria-hidden="true">R</div>
-<div class="top-mask" aria-hidden="true"></div>
 
 <nav>
     <span class="logo">Reel<span style="color:var(--accent)">Actions</span></span>

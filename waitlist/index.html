@@ -71,6 +71,16 @@
             z-index: 0;
         }
 
+        /* Top mask — covers full status bar + nav area */
+        .top-mask {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: calc(env(safe-area-inset-top) + 120px);
+            background: var(--bg);
+            z-index: 9;
+            pointer-events: none;
+        }
+
         /* Nav */
         nav {
             position: fixed;
@@ -391,6 +401,7 @@
 <body>
 
 <div class="bg-glyph" aria-hidden="true">R</div>
+<div class="top-mask" aria-hidden="true"></div>
 
 <nav>
     <span class="logo">Reel<span style="color:var(--accent)">Actions</span></span>

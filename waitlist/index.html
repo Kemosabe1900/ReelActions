@@ -71,11 +71,11 @@
             z-index: 0;
         }
 
-        /* Top mask — covers full status bar + nav area */
+        /* Top mask — extends above viewport so nothing bleeds through on scroll */
         .top-mask {
             position: fixed;
-            top: 0; left: 0; right: 0;
-            height: calc(env(safe-area-inset-top) + 120px);
+            top: -500px; left: 0; right: 0;
+            height: calc(500px + env(safe-area-inset-top) + 120px);
             background: var(--bg);
             z-index: 9;
             pointer-events: none;

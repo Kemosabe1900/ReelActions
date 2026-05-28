@@ -2,10 +2,7 @@ import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { DEV_MODE } from '@/constants/config';
 
-// Android emulator uses 10.0.2.2 to reach host localhost; iOS simulator uses localhost directly
-const BASE_URL = 'http://10.0.0.62:8000/api/v1';
-
-// When deploying, replace BASE_URL with your server URL e.g. 'https://api.reelactions.com/api/v1'
+const BASE_URL = 'https://reelactions-production.up.railway.app/api/v1';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };

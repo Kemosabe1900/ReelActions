@@ -1,8 +1,8 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView,
-  TextInput, KeyboardAvoidingView, Platform, Dimensions,
-  PanResponder, Animated,
+  TextInput, Platform, Dimensions,
+  PanResponder, Animated, Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -35,6 +35,31 @@ export function ChatBottomSheet() {
   const scrollRef = useRef<ScrollView>(null);
   const scrollYRef = useRef(0);
   const translateY = useRef(new Animated.Value(0)).current;
+  const keyboardPadding = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const show = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        Animated.timing(keyboardPadding, {
+          toValue: e.endCoordinates.height,
+          duration: Platform.OS === 'ios' ? e.duration : 250,
+          useNativeDriver: false,
+        }).start(() => scrollRef.current?.scrollToEnd({ animated: true }));
+      },
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      (e) => {
+        Animated.timing(keyboardPadding, {
+          toValue: 0,
+          duration: Platform.OS === 'ios' ? e.duration : 250,
+          useNativeDriver: false,
+        }).start();
+      },
+    );
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   const scrollToEnd = useCallback(() => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
@@ -44,6 +69,8 @@ export function ChatBottomSheet() {
     setMessages([]);
     setInput('');
     setBusy(false);
+    translateY.setValue(0);
+    keyboardPadding.setValue(0);
     closeChat();
   }, [closeChat]);
 
@@ -163,16 +190,13 @@ export function ChatBottomSheet() {
       onRequestClose={handleClose}
     >
       <View style={styles.overlay}>
-        <TouchableOpacity style={styles.backdrop} onPress={handleClose} activeOpacity={1} />
+        <TouchableOpacity style={StyleSheet.absoluteFill} onPress={handleClose} activeOpacity={1} />
 
         <Animated.View
           style={[styles.sheet, { transform: [{ translateY }] }]}
           {...panResponder.panHandlers}
         >
-          <KeyboardAvoidingView
-            style={{ flex: 1 }}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          >
+          <Animated.View style={{ flex: 1, paddingBottom: keyboardPadding }}>
             <View style={styles.handleArea}>
               <View style={styles.handle} />
             </View>
@@ -279,7 +303,7 @@ export function ChatBottomSheet() {
                 <Ionicons name="arrow-up" size={20} color={colors.background} />
               </TouchableOpacity>
             </View>
-          </KeyboardAvoidingView>
+          </Animated.View>
         </Animated.View>
       </View>
     </Modal>
@@ -292,7 +316,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
-  backdrop: { flex: 1 },
   sheet: {
     height: SHEET_HEIGHT,
     backgroundColor: colors.background,

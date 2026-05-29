@@ -30,14 +30,19 @@ export default function CategoryScreen() {
   const categoryName = decodeURIComponent(name ?? '');
 
   const [videos, setVideos] = useState<Video[]>([]);
+  const [allCategories, setAllCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [changeCategoryVideo, setChangeCategoryVideo] = useState<Video | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const v = await api.videos.list({ category: categoryName });
+      const [v, all] = await Promise.all([
+        api.videos.list({ category: categoryName }),
+        api.videos.list(),
+      ]);
       setVideos(v);
+      setAllCategories([...new Set(all.map(v => v.category).filter(Boolean) as string[])]);
       setError(false);
     } catch (e) {
       console.error('Category load error:', e);
@@ -156,7 +161,7 @@ export default function CategoryScreen() {
           visible
           videoId={changeCategoryVideo.id}
           currentCategory={changeCategoryVideo.category}
-          existingCategories={[...new Set(videos.map(v => v.category).filter(Boolean) as string[])]}
+          existingCategories={allCategories}
           onClose={() => setChangeCategoryVideo(null)}
           onUpdated={() => {
             setVideos(prev => prev.filter(v => v.id !== changeCategoryVideo.id));

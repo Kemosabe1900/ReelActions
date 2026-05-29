@@ -7,7 +7,8 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, radii } from '@/constants/theme';
 
-const SCREEN_HEIGHT = Dimensions.get('window').height;
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const SHEET_HEIGHT = SCREEN_HEIGHT * 0.67;
 
 type Message = { id: string; role: 'user' | 'assistant'; content: string; card?: ContentCard };
 type ContentCard = { title: string; category: string; source: string; time: string };
@@ -27,13 +28,13 @@ export default function ChatModal() {
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
   const [input, setInput] = useState('');
   const scrollRef = useRef<ScrollView>(null);
-  const keyboardOffset = useRef(new Animated.Value(0)).current;
+  const sheetBottom = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const show = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
       (e) => {
-        Animated.timing(keyboardOffset, {
+        Animated.timing(sheetBottom, {
           toValue: e.endCoordinates.height,
           duration: Platform.OS === 'ios' ? e.duration : 250,
           useNativeDriver: false,
@@ -43,7 +44,7 @@ export default function ChatModal() {
     const hide = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       (e) => {
-        Animated.timing(keyboardOffset, {
+        Animated.timing(sheetBottom, {
           toValue: 0,
           duration: Platform.OS === 'ios' ? e.duration : 250,
           useNativeDriver: false,
@@ -68,9 +69,9 @@ export default function ChatModal() {
 
   return (
     <View style={styles.root}>
-      <TouchableOpacity style={styles.backdrop} onPress={() => router.back()} activeOpacity={1} />
+      <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => router.back()} activeOpacity={1} />
 
-      <Animated.View style={[styles.sheet, { marginBottom: keyboardOffset }]}>
+      <Animated.View style={[styles.sheet, { bottom: sheetBottom }]}>
         <View style={styles.handle} />
 
         <View style={styles.sheetHeader}>
@@ -88,7 +89,8 @@ export default function ChatModal() {
 
         <ScrollView
           ref={scrollRef}
-          contentContainerStyle={styles.messages}
+          style={styles.messagesList}
+          contentContainerStyle={styles.messagesContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -146,19 +148,17 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  backdrop: {
-    flex: 1,
   },
   sheet: {
-    maxHeight: SCREEN_HEIGHT * 0.67,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: SHEET_HEIGHT,
     backgroundColor: colors.background,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     borderTopWidth: 1,
     borderColor: colors.outlineVariant,
-    overflow: 'hidden',
   },
   handle: {
     width: 36,
@@ -168,6 +168,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: 10,
     marginBottom: 4,
+    flexShrink: 0,
   },
   sheetHeader: {
     flexDirection: 'row',
@@ -177,6 +178,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.outlineVariant,
     gap: 12,
+    flexShrink: 0,
   },
   aiAvatar: {
     width: 36,
@@ -215,7 +217,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  messages: {
+  messagesList: {
+    flex: 1,
+  },
+  messagesContent: {
     paddingHorizontal: spacing.containerPadding,
     paddingVertical: 12,
     gap: spacing.elementTight,
@@ -326,6 +331,7 @@ const styles = StyleSheet.create({
     gap: spacing.elementTight,
     borderTopWidth: 1,
     borderTopColor: colors.outlineVariant,
+    flexShrink: 0,
   },
   input: {
     flex: 1,

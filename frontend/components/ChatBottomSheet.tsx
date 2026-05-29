@@ -246,17 +246,23 @@ export function ChatBottomSheet() {
                 </View>
               ) : (
                 messages.map((msg) => (
-                  <View key={msg.id} style={msg.role === 'user' ? styles.userRow : styles.aiRow}>
+                  <View key={msg.id} style={styles.msgWrapper}>
                     {msg.role === 'user' ? (
-                      <View style={styles.userBubble}>
-                        <Text style={styles.userText}>{msg.content}</Text>
+                      <View style={styles.userRow}>
+                        <View style={styles.userBubble}>
+                          <Text style={styles.userText}>{msg.content}</Text>
+                        </View>
                       </View>
                     ) : (
-                      <View style={styles.aiBlock}>
-                        <Text style={styles.aiText}>
-                          {msg.content}
-                          {msg.streaming && <Text style={styles.cursor}>▌</Text>}
-                        </Text>
+                      <>
+                        <View style={styles.aiRow}>
+                          <View style={styles.aiBlock}>
+                            <Text style={styles.aiText}>
+                              {msg.content}
+                              {msg.streaming && <Text style={styles.cursor}>▌</Text>}
+                            </Text>
+                          </View>
+                        </View>
                         {msg.sources && msg.sources.length > 0 && (
                           <View style={styles.sourcesBlock}>
                             {msg.sources.map((src) => (
@@ -278,7 +284,7 @@ export function ChatBottomSheet() {
                             ))}
                           </View>
                         )}
-                      </View>
+                      </>
                     )}
                   </View>
                 ))
@@ -435,6 +441,7 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
     fontFamily: 'HankenGrotesk_600SemiBold',
   },
+  msgWrapper: { gap: 8 },
   userRow: { alignItems: 'flex-end' },
   aiRow: { alignItems: 'flex-start' },
   userBubble: {
@@ -460,14 +467,14 @@ const styles = StyleSheet.create({
     fontFamily: 'HankenGrotesk_400Regular',
   },
   cursor: { color: colors.primary },
-  sourcesBlock: { gap: 8 },
+  sourcesBlock: { gap: 8, width: '100%' },
   sourceCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     backgroundColor: '#1a1a1a',
     borderRadius: radii.lg,
-    padding: 12,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#2e2e2e',
   },
@@ -483,9 +490,10 @@ const styles = StyleSheet.create({
   sourceThumbIcon: { fontSize: 13, color: colors.onSurfaceVariant },
   sourceInfo: { flex: 1, gap: 2 },
   sourceTitle: {
-    ...typography.bodySm,
+    ...typography.bodyBase,
     color: colors.onSurface,
     fontFamily: 'HankenGrotesk_600SemiBold',
+    lineHeight: 20,
   },
   sourceTap: { fontSize: 11, color: colors.primary, fontFamily: 'HankenGrotesk_600SemiBold' },
   inputRow: {

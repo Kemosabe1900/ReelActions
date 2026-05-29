@@ -29,19 +29,19 @@ class ChatService:
             return "claude-sonnet-4-6"
         return "claude-haiku-4-5-20251001"
 
-    def _build_library_snapshot(self, user_id: str) -> str:
+    def _build_library_snapshot(self, user_id: str) -> tuple[str, list[dict]]:
         try:
             db = get_db()
             result = (
                 db.table("videos")
-                .select("id,title,category,created_at,tried")
+                .select("id,title,category,url,created_at,tried")
                 .eq("user_id", user_id)
                 .order("created_at", desc=True)
                 .execute()
             )
             videos = result.data
             if not videos:
-                return "No saved videos yet."
+                return "No saved videos yet.", []
 
             now = datetime.now(timezone.utc)
             today = now.date()
@@ -53,7 +53,8 @@ class ChatService:
             if categories:
                 lines.append(f"Categories: {', '.join(categories)}")
 
-            recent = []
+            recent_lines = []
+            recent_videos = []
             for v in videos:
                 raw = v["created_at"].replace("Z", "+00:00")
                 created = datetime.fromisoformat(raw)
@@ -62,16 +63,17 @@ class ChatService:
                     label = "today" if days_ago == 0 else ("yesterday" if days_ago == 1 else f"{days_ago} days ago")
                     title = v.get("title") or "Untitled"
                     cat = v.get("category") or "uncategorized"
-                    recent.append(f"  - {title} (saved {label}, category: {cat})")
+                    recent_lines.append(f"  - {title} (saved {label}, category: {cat})")
+                    recent_videos.append(v)
 
-            if recent:
-                lines.append(f"Saved this week ({len(recent)}):\n" + "\n".join(recent))
+            if recent_lines:
+                lines.append(f"Saved this week ({len(recent_lines)}):\n" + "\n".join(recent_lines))
             else:
                 lines.append("No videos saved this week.")
 
-            return "\n".join(lines)
+            return "\n".join(lines), recent_videos
         except Exception:
-            return ""
+            return "", []
 
     def stream_response(
         self,
@@ -79,12 +81,17 @@ class ChatService:
         history: list[dict],
         user_id: str,
     ) -> Generator[dict, None, None]:
+        is_temporal = any(
+            kw in message.lower()
+            for kw in ["today", "this week", "last week", "recently", "when", "how many", "all my", "latest", "oldest"]
+        )
+
         chunks = self.embedder.search_similar(message, user_id, limit=5)
 
         context_parts = [f"[{c['video_title']}]\n{c['content']}" for c in chunks]
         rag_context = "\n\n".join(context_parts) if context_parts else "No semantically relevant videos found."
 
-        snapshot = self._build_library_snapshot(user_id)
+        snapshot, recent_videos = self._build_library_snapshot(user_id)
 
         today_str = datetime.now(timezone.utc).strftime("%A, %B %d, %Y")
         system = BASE_SYSTEM_PROMPT + f"\n\nToday is {today_str}."
@@ -93,10 +100,18 @@ class ChatService:
 
         seen_urls: set[str] = set()
         sources = []
-        for c in chunks:
-            if c.get("similarity", 0) >= 0.25 and c["video_url"] not in seen_urls:
-                seen_urls.add(c["video_url"])
-                sources.append({"id": str(c["video_id"]), "url": c["video_url"], "title": c["video_title"]})
+
+        if is_temporal:
+            for v in recent_videos:
+                url = v.get("url", "")
+                if url not in seen_urls:
+                    seen_urls.add(url)
+                    sources.append({"id": str(v["id"]), "url": url, "title": v.get("title") or "Untitled"})
+        else:
+            for c in chunks:
+                if c.get("similarity", 0) >= 0.25 and c["video_url"] not in seen_urls:
+                    seen_urls.add(c["video_url"])
+                    sources.append({"id": str(c["video_id"]), "url": c["video_url"], "title": c["video_title"]})
 
         messages = [
             *[{"role": m["role"], "content": m["content"]} for m in history],

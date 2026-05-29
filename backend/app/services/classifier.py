@@ -1,8 +1,11 @@
 import json
+import logging
 from typing import Optional
 from anthropic import Anthropic
 from pydantic import BaseModel
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """You are a knowledge extractor for a personal knowledge base app. Users save TikTok and Instagram Reels to build a searchable library of useful knowledge.
 
@@ -79,8 +82,9 @@ class ClassificationService:
             parts.append("No transcript available. Classify from images only.")
         user_content.append({"type": "text", "text": "\n\n".join(parts)})
 
+        logger.info("[classifier] transcript length: %d", len(transcript) if transcript else 0)
         last_error: Exception | None = None
-        for _ in range(2):
+        for attempt in range(2):
             try:
                 response = self.client.messages.create(
                     model=self.model,
@@ -89,19 +93,20 @@ class ClassificationService:
                     system=SYSTEM_PROMPT,
                     messages=[{"role": "user", "content": user_content}],
                 )
-                raw = response.content[0].text.strip()
+                logger.info("[classifier] stop_reason: %s content blocks: %d", response.stop_reason, len(response.content))
+                raw = response.content[0].text.strip() if response.content else ""
+                logger.info("[classifier] raw response (attempt %d): %s", attempt, raw[:300])
                 # strip markdown code fences if present
                 if raw.startswith("```"):
                     raw = raw.split("```")[1]
                     if raw.startswith("json"):
                         raw = raw[4:]
                     raw = raw.strip()
-                print(f"[classifier] raw response: {raw[:200]}")
                 data = json.loads(raw)
                 return ClassificationResult(**data)
             except Exception as e:
                 last_error = e
-                print(f"[classifier] attempt failed: {e}")
+                logger.error("[classifier] attempt %d failed: %s", attempt, e)
 
         raise ClassificationError(f"Classification failed after 2 attempts: {str(last_error)}")
 

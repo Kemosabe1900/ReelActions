@@ -109,19 +109,26 @@ class VideoProcessor:
                     category=classification.category,
                 )
             else:
-                audio_path = download_audio(video_url, job_id)
+                audio_path, caption = download_audio(video_url, job_id)
 
                 self._update_job(job_id, "transcribing")
                 transcript_result = self.transcriber.transcribe(audio_path, video_url=video_url)
+                transcript_text = transcript_result.text.strip()
+
+                # fallback to caption if transcript is empty
+                classify_text = transcript_text or caption or None
+                if not classify_text:
+                    raise RuntimeError("No speech or caption found in this video — cannot classify")
+
                 self._supabase.table("videos").update({
-                    "transcript": transcript_result.text,
+                    "transcript": transcript_text or caption,
                 }).eq("id", video_id).execute()
 
                 frames = extract_frames_for_vision(video_url, transcript_result.segments)
 
                 self._update_job(job_id, "classifying")
                 classification = self.classifier.classify(
-                    transcript=transcript_result.text,
+                    transcript=classify_text,
                     images=frames or None,
                     existing_categories=existing_categories,
                 )
@@ -136,7 +143,7 @@ class VideoProcessor:
                 self._update_job(job_id, "embedding")
                 self.embedder.embed_and_store(
                     video_id,
-                    transcript_result.text,
+                    classify_text,
                     user_id,
                     title=classification.title,
                     category=classification.category,

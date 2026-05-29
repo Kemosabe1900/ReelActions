@@ -22,10 +22,13 @@ def download_tiktok_audio(url: str, job_id: str) -> str:
         alert(f"TikWM returned error for job {job_id}: {msg}")
         raise RuntimeError(f"TikWM error: {msg}")
 
-    play_url = data.get("data", {}).get("play")
+    video_data = data.get("data", {})
+    play_url = video_data.get("play")
     if not play_url:
         alert(f"TikWM returned no download URL for job {job_id}")
         raise RuntimeError("TikWM returned no download URL")
+
+    caption = (video_data.get("title") or video_data.get("desc") or "").strip()
 
     tmp_path = os.path.join(tempfile.gettempdir(), f"{job_id}.mp4")
     try:
@@ -39,4 +42,4 @@ def download_tiktok_audio(url: str, job_id: str) -> str:
         alert(f"TikWM video download failed for job {job_id}: {e}")
         raise RuntimeError(f"TikWM download failed: {e}")
 
-    return tmp_path
+    return tmp_path, caption

@@ -68,7 +68,21 @@ def download_images(url: str, job_id: str) -> list[str]:
     return b64_images
 
 
-def _download_via_ytdlp(url: str, job_id: str) -> str:
+def _fetch_ytdlp_caption(url: str) -> str:
+    """Quick metadata fetch — returns video description/caption or empty string."""
+    cmd = ["yt-dlp", "--dump-json", "--no-download", "--no-playlist", url]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        if result.returncode == 0 and result.stdout.strip():
+            info = json.loads(result.stdout.strip().split('\n')[0])
+            return (info.get("description") or info.get("title") or "").strip()
+    except Exception:
+        pass
+    return ""
+
+
+def _download_via_ytdlp(url: str, job_id: str) -> tuple[str, str]:
+    caption = _fetch_ytdlp_caption(url)
     tmp = tempfile.gettempdir()
     cmd = [
         "yt-dlp",
@@ -84,19 +98,17 @@ def _download_via_ytdlp(url: str, job_id: str) -> str:
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     if result.returncode != 0:
         raise RuntimeError(f"yt-dlp failed: {result.stderr.strip()[:500]}")
-    if result.stderr.strip():
-        print(f"[yt-dlp stderr] {result.stderr.strip()[:500]}")
     matches = glob.glob(os.path.join(tmp, f"{job_id}.*"))
     if not matches:
         raise RuntimeError(
             f"Audio file not found after download. "
             f"stdout={result.stdout.strip()[:200]} stderr={result.stderr.strip()[:200]}"
         )
-    return matches[0]
+    return matches[0], caption
 
 
-def download_audio(url: str, job_id: str) -> str:
-    """Download audio from a URL. Routes TikTok through TikWM, everything else via yt-dlp."""
+def download_audio(url: str, job_id: str) -> tuple[str, str]:
+    """Download audio from URL. Returns (audio_path, caption). Routes TikTok through TikWM."""
     if "tiktok.com" in url:
         from app.services.tiktok_scraper import download_tiktok_audio
         return download_tiktok_audio(url, job_id)

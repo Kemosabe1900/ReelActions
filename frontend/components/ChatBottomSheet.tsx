@@ -19,6 +19,44 @@ const SUGGESTED_PROMPTS = [
   { prompt: 'Show me saves from this week', icon: 'calendar-outline', color: '#a855f7' },
 ] as const;
 
+function TypingDots() {
+  const d1 = useRef(new Animated.Value(0)).current;
+  const d2 = useRef(new Animated.Value(0)).current;
+  const d3 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const bounce = (dot: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(dot, { toValue: -5, duration: 220, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0, duration: 220, useNativeDriver: true }),
+          Animated.delay(500),
+        ]),
+      );
+    const a1 = bounce(d1, 0);
+    const a2 = bounce(d2, 140);
+    const a3 = bounce(d3, 280);
+    a1.start(); a2.start(); a3.start();
+    return () => { a1.stop(); a2.stop(); a3.stop(); };
+  }, []);
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 4 }}>
+      {[d1, d2, d3].map((dot, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            width: 7, height: 7, borderRadius: 4,
+            backgroundColor: '#22c55e',
+            transform: [{ translateY: dot }],
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
 type Message = {
   id: string;
   role: 'user' | 'assistant';
@@ -257,10 +295,14 @@ export function ChatBottomSheet() {
                       <>
                         <View style={styles.aiRow}>
                           <View style={styles.aiBlock}>
-                            <Text style={styles.aiText}>
-                              {msg.content}
-                              {msg.streaming && <Text style={styles.cursor}>▌</Text>}
-                            </Text>
+                            {msg.streaming && !msg.content ? (
+                              <TypingDots />
+                            ) : (
+                              <Text style={styles.aiText}>
+                                {msg.content}
+                                {msg.streaming && <Text style={styles.cursor}>▌</Text>}
+                              </Text>
+                            )}
                           </View>
                         </View>
                         {msg.sources && msg.sources.length > 0 && (

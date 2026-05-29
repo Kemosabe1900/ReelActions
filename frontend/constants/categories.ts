@@ -54,3 +54,26 @@ export function getCategoryColor(name: string): string {
 export function getCategoryEmoji(name: string): string {
   return CATEGORY_EMOJI[name] ?? '📌';
 }
+
+export const CATEGORY_ICON: Record<string, string> = {
+  Cooking: 'restaurant-outline', Recipes: 'restaurant-outline', Food: 'restaurant-outline',
+  Workout: 'barbell-outline', Workouts: 'barbell-outline', Fitness: 'barbell-outline',
+  Finance: 'cash-outline', Money: 'cash-outline', Business: 'trending-up-outline',
+  Mindset: 'bulb-outline', 'Self Improvement': 'bulb-outline', 'Personal Development': 'bulb-outline',
+  Productivity: 'flash-outline', 'Time Management': 'flash-outline',
+  Travel: 'airplane-outline', Fashion: 'shirt-outline', Beauty: 'sparkles-outline',
+  Tech: 'code-slash-outline', Technology: 'code-slash-outline', Programming: 'code-slash-outline',
+  Art: 'color-palette-outline', Design: 'color-palette-outline',
+  Music: 'musical-notes-outline', Dance: 'body-outline',
+  Health: 'heart-outline', Wellness: 'leaf-outline', Meditation: 'leaf-outline',
+  Marketing: 'megaphone-outline', Education: 'book-outline', Learning: 'book-outline',
+  DIY: 'hammer-outline', Gaming: 'game-controller-outline', Sports: 'football-outline',
+  Entertainment: 'film-outline', Lifestyle: 'sunny-outline', Comedy: 'happy-outline',
+  News: 'newspaper-outline', Science: 'flask-outline', Nature: 'leaf-outline',
+  Relationships: 'heart-outline', Career: 'briefcase-outline',
+  Uncategorized: 'grid-outline',
+};
+
+export function getCategoryIcon(name: string): string {
+  return CATEGORY_ICON[name] ?? 'grid-outline';
+}

@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { colors, typography, spacing, radii } from '@/constants/theme';
-import { getCategoryColor, getCategoryEmoji } from '@/constants/categories';
+import { getCategoryColor, getCategoryIcon } from '@/constants/categories';
 import { api, Video, Profile } from '@/services/api';
 
 const CARD_GAP = 12;
@@ -12,10 +12,8 @@ const CARD_WIDTH = (Dimensions.get('window').width - spacing.containerPadding * 
 const GLOW_SIZE = CARD_WIDTH * 1.8;
 
 function getProgressColor(tried: number, total: number): string {
-  const pct = total > 0 ? tried / total : 0;
-  if (pct >= 1) return '#fbbf24';
-  if (pct >= 0.66) return colors.primary;
-  if (pct >= 0.33) return '#eab308';
+  if (total > 0 && tried >= total) return '#22c55e';
+  if (tried > 0) return '#f97316';
   return '#ffffff';
 }
 
@@ -135,7 +133,7 @@ export default function LibraryScreen() {
                   />
                   <View style={[styles.glow, { backgroundColor: glowColor, transform: [{ scale: 1.6 }] }]} />
                   <View style={styles.emojiWrap}>
-                    <Text style={styles.emoji}>{getCategoryEmoji(cat.name)}</Text>
+                    <Ionicons name={getCategoryIcon(cat.name) as any} size={40} color={progressColor} />
                   </View>
                   <View style={styles.cardBottom}>
                     <Text style={styles.catName}>{cat.name}</Text>
@@ -196,7 +194,6 @@ const styles = StyleSheet.create({
     opacity: 0.13, top: '50%', left: '50%', marginTop: -(GLOW_SIZE / 2), marginLeft: -(GLOW_SIZE / 2),
   },
   emojiWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
-  emoji: { fontSize: 40 },
   cardBottom: { width: '100%', gap: 5, zIndex: 1 },
   catName: { ...typography.bodyBase, color: colors.onSurface, fontFamily: 'HankenGrotesk_700Bold', textAlign: 'center' },
   progressTrack: { height: 6, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: radii.full, overflow: 'hidden' },

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import {
@@ -13,9 +13,14 @@ import { useShareIntentContext, ShareIntentProvider } from 'expo-share-intent';
 import { colors } from '@/constants/theme';
 import { api } from '@/services/api';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import { PurchasesProvider } from '@/contexts/PurchasesContext';
+import { PurchasesProvider, usePurchases } from '@/contexts/PurchasesContext';
 import { registerForPushNotifications } from '@/services/notifications';
-import { DEV_MODE } from '@/constants/config';
+import { DEV_MODE, SENTRY_DSN } from '@/constants/config';
+import * as Sentry from '@sentry/react-native';
+
+if (SENTRY_DSN) {
+  Sentry.init({ dsn: SENTRY_DSN, tracesSampleRate: 0.1 });
+}
 
 SplashScreen.preventAutoHideAsync();
 
@@ -30,6 +35,26 @@ function ShareIntentHandler() {
       .catch(() => {})
       .finally(() => resetShareIntent());
   }, [hasShareIntent]);
+
+  return null;
+}
+
+const UNPROTECTED = ['(auth)', '(onboarding)', 'subscription'];
+
+function PaywallGate() {
+  const { isSubscribed, loading } = usePurchases();
+  const { session } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (loading) return;
+    if (!session) return;
+    const onUnprotected = UNPROTECTED.some(s => segments.includes(s as never));
+    if (!isSubscribed && !onUnprotected) {
+      router.replace('/subscription');
+    }
+  }, [isSubscribed, loading, session, segments]);
 
   return null;
 }
@@ -62,6 +87,7 @@ export default function RootLayout() {
     <AppProviders>
     <ShareIntentProvider>
       <ShareIntentHandler />
+      <PaywallGate />
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
         <Stack.Screen name="(onboarding)" />

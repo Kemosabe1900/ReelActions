@@ -99,7 +99,8 @@ def delete_video(video_id: str, user_id: str = Depends(get_current_user)):
 
 
 class UpdateVideoRequest(BaseModel):
-    title: str
+    title: str | None = None
+    category: str | None = None
 
 
 @router.patch("/videos/{video_id}")
@@ -112,12 +113,26 @@ def update_video(video_id: str, body: UpdateVideoRequest, user_id: str = Depends
     )
     if not exists.data:
         raise HTTPException(status_code=404, detail="Video not found")
+    updates = {}
+    if body.title is not None:
+        updates["title"] = body.title
+    if body.category is not None:
+        updates["category"] = body.category
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
     result = (
-        db.table("videos").update({"title": body.title})
+        db.table("videos").update(updates)
         .eq("id", video_id).eq("user_id", user_id)
         .execute()
     )
-    return result.data[0]
+    if result.data:
+        return result.data[0]
+    fetch = (
+        db.table("videos").select("*")
+        .eq("id", video_id).eq("user_id", user_id)
+        .limit(1).execute()
+    )
+    return fetch.data[0]
 
 
 @router.patch("/videos/{video_id}/tried")

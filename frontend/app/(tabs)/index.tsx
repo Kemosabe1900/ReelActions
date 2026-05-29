@@ -7,6 +7,7 @@ import { colors, typography, spacing, radii } from '@/constants/theme';
 import { getCategoryColor } from '@/constants/categories';
 import { api, Video, Profile } from '@/services/api';
 import { SaveVideoSheet } from '@/components/SaveVideoSheet';
+import { ChangeCategorySheet } from '@/components/ChangeCategorySheet';
 
 type PendingJob = { jobId: string; videoId: string; url: string; failed: boolean };
 
@@ -44,12 +45,14 @@ function ContextMenu({
   onDelete,
   onToggleTried,
   onRename,
+  onChangeCategory,
 }: {
   video: Video;
   onClose: () => void;
   onDelete: () => void;
   onToggleTried: () => void;
   onRename: () => void;
+  onChangeCategory: () => void;
 }) {
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
@@ -70,6 +73,10 @@ function ContextMenu({
           <TouchableOpacity style={styles.contextAction} onPress={onRename}>
             <Ionicons name="pencil-outline" size={20} color={colors.onSurface} />
             <Text style={styles.contextActionText}>Rename</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.contextAction} onPress={onChangeCategory}>
+            <Ionicons name="folder-outline" size={20} color={colors.onSurface} />
+            <Text style={styles.contextActionText}>Change category</Text>
           </TouchableOpacity>
           <View style={styles.contextSeparator} />
           <TouchableOpacity style={styles.contextAction} onPress={onClose}>
@@ -179,6 +186,7 @@ export default function HomeScreen() {
   const [contextVideo, setContextVideo] = useState<Video | null>(null);
   const [renameVideo, setRenameVideo] = useState<Video | null>(null);
   const [renameText, setRenameText] = useState('');
+  const [changeCategoryVideo, setChangeCategoryVideo] = useState<Video | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevActiveDaysRef = useRef<number[]>([]);
   const isFirstVideoLoad = useRef(true);
@@ -480,6 +488,10 @@ export default function HomeScreen() {
             setRenameVideo(contextVideo);
             setContextVideo(null);
           }}
+          onChangeCategory={() => {
+            setChangeCategoryVideo(contextVideo);
+            setContextVideo(null);
+          }}
         />
       )}
       {renameVideo && (
@@ -488,6 +500,19 @@ export default function HomeScreen() {
           onChangeText={setRenameText}
           onCancel={() => setRenameVideo(null)}
           onSave={handleRename}
+        />
+      )}
+      {changeCategoryVideo && (
+        <ChangeCategorySheet
+          visible
+          videoId={changeCategoryVideo.id}
+          currentCategory={changeCategoryVideo.category}
+          existingCategories={[...new Set(videos.map(v => v.category).filter(Boolean) as string[])]}
+          onClose={() => setChangeCategoryVideo(null)}
+          onUpdated={(newCategory) => {
+            setVideos(prev => prev.map(v => v.id === changeCategoryVideo.id ? { ...v, category: newCategory } : v));
+            setChangeCategoryVideo(null);
+          }}
         />
       )}
     </SafeAreaView>

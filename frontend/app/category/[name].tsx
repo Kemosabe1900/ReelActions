@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors, typography, spacing, radii } from '@/constants/theme';
 import { getCategoryColor } from '@/constants/categories';
 import { api, Video } from '@/services/api';
+import { ChangeCategorySheet } from '@/components/ChangeCategorySheet';
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -31,6 +32,7 @@ export default function CategoryScreen() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [changeCategoryVideo, setChangeCategoryVideo] = useState<Video | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -102,6 +104,8 @@ export default function CategoryScreen() {
               style={styles.videoCard}
               activeOpacity={0.75}
               onPress={() => router.push(`/video/${video.id}`)}
+              onLongPress={() => setChangeCategoryVideo(video)}
+              delayLongPress={150}
             >
               <View style={styles.thumbnailWrapper}>
                 <LinearGradient colors={['#1c1c1c', '#252525']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.thumbnail}>
@@ -146,6 +150,19 @@ export default function CategoryScreen() {
             </View>
           )}
         </ScrollView>
+      )}
+      {changeCategoryVideo && (
+        <ChangeCategorySheet
+          visible
+          videoId={changeCategoryVideo.id}
+          currentCategory={changeCategoryVideo.category}
+          existingCategories={[...new Set(videos.map(v => v.category).filter(Boolean) as string[])]}
+          onClose={() => setChangeCategoryVideo(null)}
+          onUpdated={() => {
+            setVideos(prev => prev.filter(v => v.id !== changeCategoryVideo.id));
+            setChangeCategoryVideo(null);
+          }}
+        />
       )}
     </SafeAreaView>
   );

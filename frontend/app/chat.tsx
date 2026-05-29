@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  TextInput, KeyboardAvoidingView, Platform, Dimensions,
+  TextInput, Animated, Keyboard, Platform, Dimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +27,31 @@ export default function ChatModal() {
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
   const [input, setInput] = useState('');
   const scrollRef = useRef<ScrollView>(null);
+  const keyboardOffset = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const show = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        Animated.timing(keyboardOffset, {
+          toValue: e.endCoordinates.height,
+          duration: Platform.OS === 'ios' ? e.duration : 250,
+          useNativeDriver: false,
+        }).start(() => scrollRef.current?.scrollToEnd({ animated: true }));
+      },
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      (e) => {
+        Animated.timing(keyboardOffset, {
+          toValue: 0,
+          duration: Platform.OS === 'ios' ? e.duration : 250,
+          useNativeDriver: false,
+        }).start();
+      },
+    );
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   function sendMessage() {
     if (!input.trim()) return;
@@ -43,14 +68,9 @@ export default function ChatModal() {
 
   return (
     <View style={styles.root}>
-      {/* Backdrop — tap to dismiss */}
       <TouchableOpacity style={styles.backdrop} onPress={() => router.back()} activeOpacity={1} />
 
-      {/* Chat sheet */}
-      <KeyboardAvoidingView
-        style={styles.sheet}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
+      <Animated.View style={[styles.sheet, { marginBottom: keyboardOffset }]}>
         <View style={styles.handle} />
 
         <View style={styles.sheetHeader}>
@@ -117,7 +137,7 @@ export default function ChatModal() {
             <Text style={styles.sendIcon}>↑</Text>
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      </Animated.View>
     </View>
   );
 }
@@ -132,7 +152,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sheet: {
-    height: SCREEN_HEIGHT * 0.67,
+    maxHeight: SCREEN_HEIGHT * 0.67,
     backgroundColor: colors.background,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,

@@ -96,6 +96,11 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ title }),
       }),
+    updateCategory: (id: string, category: string) =>
+      request<Video>(`/videos/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ category }),
+      }),
     toggleTried: (id: string) =>
       request<Video>(`/videos/${id}/tried`, { method: 'PATCH' }),
     delete: (id: string) =>

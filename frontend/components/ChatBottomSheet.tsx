@@ -13,11 +13,11 @@ import { api, ChatMessage, ChatSource } from '@/services/api';
 const SHEET_HEIGHT = Dimensions.get('window').height * 0.85;
 
 const SUGGESTED_PROMPTS = [
-  'What recipes have I saved?',
-  'Find my workout saves',
-  'Any finance videos?',
-  'Show me saves from this week',
-];
+  { prompt: 'What recipes have I saved?', icon: 'restaurant-outline', color: '#f97316' },
+  { prompt: 'Find my workout saves', icon: 'barbell-outline', color: '#22c55e' },
+  { prompt: 'Any finance videos?', icon: 'trending-up-outline', color: '#3b82f6' },
+  { prompt: 'Show me saves from this week', icon: 'calendar-outline', color: '#a855f7' },
+] as const;
 
 type Message = {
   id: string;
@@ -228,14 +228,18 @@ export function ChatBottomSheet() {
                   <Text style={styles.emptyTitle}>Search your library</Text>
                   <Text style={styles.emptySubtitle}>Ask anything about your saved content</Text>
                   <View style={styles.prompts}>
-                    {SUGGESTED_PROMPTS.map((p) => (
+                    {SUGGESTED_PROMPTS.map(({ prompt, icon, color }) => (
                       <TouchableOpacity
-                        key={p}
+                        key={prompt}
                         style={styles.promptChip}
-                        onPress={() => send(p)}
-                        activeOpacity={0.7}
+                        onPress={() => send(prompt)}
+                        activeOpacity={0.65}
                       >
-                        <Text style={styles.promptText}>{p}</Text>
+                        <View style={[styles.promptIcon, { backgroundColor: color + '18' }]}>
+                          <Ionicons name={icon as any} size={16} color={color} />
+                        </View>
+                        <Text style={styles.promptText}>{prompt}</Text>
+                        <Ionicons name="arrow-forward" size={14} color={colors.onSurfaceVariant} />
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -404,20 +408,32 @@ const styles = StyleSheet.create({
   prompts: {
     width: '100%',
     gap: 8,
-    marginTop: 4,
+    marginTop: 8,
   },
   promptChip: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: radii.xl,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#161616',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#2e2e2e',
-    paddingHorizontal: 16,
+    borderColor: '#242424',
+    paddingHorizontal: 14,
     paddingVertical: 12,
   },
+  promptIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
   promptText: {
+    flex: 1,
     ...typography.bodyBase,
     color: colors.onSurface,
-    fontFamily: 'HankenGrotesk_400Regular',
+    fontFamily: 'HankenGrotesk_600SemiBold',
   },
   userRow: { alignItems: 'flex-end' },
   aiRow: { alignItems: 'flex-start' },

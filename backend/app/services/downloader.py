@@ -87,22 +87,28 @@ def _fetch_ytdlp_meta(url: str) -> tuple[str, str | None]:
 
 
 def _to_mp3(raw_path: str, job_id: str) -> str:
-    """Convert any video/audio file to mp3 using ffmpeg. Returns mp3 path."""
+    """Convert any video/audio file to Whisper-compatible audio. Returns output path."""
     tmp = tempfile.gettempdir()
-    mp3_path = os.path.join(tmp, f"{job_id}_audio.mp3")
-    conv = subprocess.run(
-        ["ffmpeg", "-y", "-i", raw_path, "-vn", "-acodec", "libmp3lame", "-q:a", "5", mp3_path],
-        capture_output=True, text=True, timeout=120,
-    )
-    if conv.returncode != 0:
-        logger.error("[downloader] ffmpeg failed (rc=%d): %s", conv.returncode, conv.stderr.strip()[:500])
-        raise RuntimeError(f"ffmpeg conversion failed: {conv.stderr.strip()[:300]}")
-    logger.info("[downloader] ffmpeg -> %s", mp3_path)
-    try:
-        os.remove(raw_path)
-    except OSError:
-        pass
-    return mp3_path
+    attempts = [
+        (os.path.join(tmp, f"{job_id}_audio.mp3"), ["-vn", "-acodec", "libmp3lame", "-q:a", "5"]),
+        (os.path.join(tmp, f"{job_id}_audio.m4a"), ["-vn", "-acodec", "aac", "-b:a", "128k"]),
+        (os.path.join(tmp, f"{job_id}_audio.wav"), ["-vn", "-acodec", "pcm_s16le", "-ar", "16000"]),
+    ]
+    for out_path, flags in attempts:
+        conv = subprocess.run(
+            ["ffmpeg", "-y", "-i", raw_path, *flags, out_path],
+            capture_output=True, text=True, timeout=120,
+        )
+        if conv.returncode == 0:
+            logger.info("[downloader] ffmpeg -> %s", out_path)
+            try:
+                os.remove(raw_path)
+            except OSError:
+                pass
+            return out_path
+        logger.warning("[downloader] ffmpeg attempt failed (%s): %s", out_path, conv.stderr.strip()[-300:])
+
+    raise RuntimeError(f"ffmpeg: all conversion attempts failed for {os.path.basename(raw_path)}")
 
 
 def _download_via_ytdlp(url: str, job_id: str) -> tuple[str, str, str | None]:

@@ -411,6 +411,7 @@ export default function HomeScreen() {
               {pendingJobs.map((job, idx) => (
                 <View key={job.jobId}>
                   <View style={styles.saveItem}>
+                    <View style={styles.saveItemInner}>
                     <View style={styles.thumbnail}>
                       {job.failed ? (
                         <Ionicons name="alert-circle-outline" size={22} color={colors.error} />
@@ -434,6 +435,7 @@ export default function HomeScreen() {
                         <Ionicons name="close" size={20} color={colors.onSurfaceVariant} />
                       </TouchableOpacity>
                     )}
+                    </View>
                   </View>
                   {(idx < pendingJobs.length - 1 || recent.length > 0) && <View style={styles.separator} />}
                 </View>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,6 +7,92 @@ import { colors, typography, spacing, radii } from '@/constants/theme';
 import { getCategoryColor } from '@/constants/categories';
 import { api, Video } from '@/services/api';
 import { ChangeCategorySheet } from '@/components/ChangeCategorySheet';
+
+function ContextMenu({
+  video,
+  onClose,
+  onDelete,
+  onRename,
+  onChangeCategory,
+}: {
+  video: Video;
+  onClose: () => void;
+  onDelete: () => void;
+  onRename: () => void;
+  onChangeCategory: () => void;
+}) {
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <TouchableOpacity style={styles.contextBackdrop} activeOpacity={1} onPress={onClose}>
+        <TouchableOpacity activeOpacity={1} style={styles.contextSheet} onPress={() => {}}>
+          <Text style={styles.contextTitle} numberOfLines={2}>{video.title ?? 'Untitled'}</Text>
+          <View style={styles.contextSeparator} />
+          <TouchableOpacity style={styles.contextAction} onPress={onDelete}>
+            <Ionicons name="trash-outline" size={20} color="#ef4444" />
+            <Text style={[styles.contextActionText, { color: '#ef4444' }]}>Delete</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.contextAction} onPress={onRename}>
+            <Ionicons name="pencil-outline" size={20} color={colors.onSurface} />
+            <Text style={styles.contextActionText}>Rename</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.contextAction} onPress={onChangeCategory}>
+            <Ionicons name="folder-outline" size={20} color={colors.onSurface} />
+            <Text style={styles.contextActionText}>Change category</Text>
+          </TouchableOpacity>
+          <View style={styles.contextSeparator} />
+          <TouchableOpacity style={styles.contextAction} onPress={onClose}>
+            <Text style={[styles.contextActionText, { color: colors.onSurfaceVariant }]}>Cancel</Text>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
+  );
+}
+
+function RenameModal({
+  text,
+  onChangeText,
+  onCancel,
+  onSave,
+}: {
+  text: string;
+  onChangeText: (t: string) => void;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.renameBackdrop}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onCancel} />
+        <View style={styles.renameCard}>
+          <Text style={styles.renameTitle}>Rename</Text>
+          <TextInput
+            style={styles.renameInput}
+            value={text}
+            onChangeText={onChangeText}
+            autoFocus
+            selectTextOnFocus
+            placeholderTextColor={colors.onSurfaceVariant}
+            returnKeyType="done"
+            onSubmitEditing={onSave}
+          />
+          <View style={styles.renameActions}>
+            <TouchableOpacity style={styles.renameCancelBtn} onPress={onCancel}>
+              <Text style={styles.renameCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.renameSaveBtn, !text.trim() && { opacity: 0.4 }]}
+              onPress={onSave}
+              disabled={!text.trim()}
+            >
+              <Text style={styles.renameSaveText}>Save</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -33,7 +119,10 @@ export default function CategoryScreen() {
   const [allCategories, setAllCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [contextVideo, setContextVideo] = useState<Video | null>(null);
   const [changeCategoryVideo, setChangeCategoryVideo] = useState<Video | null>(null);
+  const [renameVideo, setRenameVideo] = useState<Video | null>(null);
+  const [renameText, setRenameText] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -60,6 +149,28 @@ export default function CategoryScreen() {
       setVideos(prev => prev.map(v => v.id === id ? updated : v));
     } catch (e) {
       console.error('Toggle tried error:', e);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    setVideos(prev => prev.filter(v => v.id !== id));
+    try {
+      await api.videos.delete(id);
+    } catch {
+      load();
+    }
+  };
+
+  const handleRename = async () => {
+    if (!renameVideo || !renameText.trim()) return;
+    const id = renameVideo.id;
+    const newTitle = renameText.trim();
+    setRenameVideo(null);
+    setVideos(prev => prev.map(v => v.id === id ? { ...v, title: newTitle } : v));
+    try {
+      await api.videos.rename(id, newTitle);
+    } catch {
+      load();
     }
   };
 
@@ -109,7 +220,7 @@ export default function CategoryScreen() {
               style={styles.videoCard}
               activeOpacity={0.75}
               onPress={() => router.push(`/video/${video.id}`)}
-              onLongPress={() => setChangeCategoryVideo(video)}
+              onLongPress={() => setContextVideo(video)}
               delayLongPress={150}
             >
               <View style={styles.thumbnailWrapper}>
@@ -155,6 +266,23 @@ export default function CategoryScreen() {
             </View>
           )}
         </ScrollView>
+      )}
+      {contextVideo && (
+        <ContextMenu
+          video={contextVideo}
+          onClose={() => setContextVideo(null)}
+          onDelete={() => { handleDelete(contextVideo.id); setContextVideo(null); }}
+          onRename={() => { setRenameText(contextVideo.title ?? ''); setRenameVideo(contextVideo); setContextVideo(null); }}
+          onChangeCategory={() => { setChangeCategoryVideo(contextVideo); setContextVideo(null); }}
+        />
+      )}
+      {renameVideo && (
+        <RenameModal
+          text={renameText}
+          onChangeText={setRenameText}
+          onCancel={() => setRenameVideo(null)}
+          onSave={handleRename}
+        />
       )}
       {changeCategoryVideo && (
         <ChangeCategorySheet
@@ -287,4 +415,93 @@ const styles = StyleSheet.create({
   triedBtn: { flexShrink: 0, padding: 2 },
   empty: { alignItems: 'center', paddingVertical: 48 },
   emptyText: { ...typography.bodyBase, color: colors.onSurfaceVariant, fontFamily: 'HankenGrotesk_400Regular' },
+  contextBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  contextSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 32,
+    paddingTop: 16,
+  },
+  contextTitle: {
+    ...typography.bodyBase,
+    color: colors.onSurfaceVariant,
+    fontFamily: 'HankenGrotesk_400Regular',
+    paddingHorizontal: 4,
+    paddingBottom: 12,
+  },
+  contextSeparator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#2e2e2e',
+    marginVertical: 4,
+  },
+  contextAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+  },
+  contextActionText: {
+    ...typography.bodyBase,
+    color: colors.onSurface,
+    fontFamily: 'HankenGrotesk_600SemiBold',
+  },
+  renameBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  renameCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 20,
+    gap: 16,
+  },
+  renameTitle: {
+    ...typography.titleLg,
+    color: colors.onSurface,
+    fontFamily: 'HankenGrotesk_700Bold',
+  },
+  renameInput: {
+    backgroundColor: colors.surfaceHigh,
+    borderRadius: radii.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    ...typography.bodyBase,
+    color: colors.onSurface,
+    fontFamily: 'HankenGrotesk_400Regular',
+  },
+  renameActions: {
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  renameCancelBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  renameCancelText: {
+    ...typography.bodyBase,
+    color: colors.onSurfaceVariant,
+    fontFamily: 'HankenGrotesk_600SemiBold',
+  },
+  renameSaveBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: radii.md,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  renameSaveText: {
+    ...typography.bodyBase,
+    color: colors.background,
+    fontFamily: 'HankenGrotesk_700Bold',
+  },
 });

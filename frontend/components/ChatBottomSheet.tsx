@@ -20,37 +20,39 @@ const SUGGESTED_PROMPTS = [
 ] as const;
 
 function TypingDots() {
-  const d1 = useRef(new Animated.Value(0)).current;
-  const d2 = useRef(new Animated.Value(0)).current;
-  const d3 = useRef(new Animated.Value(0)).current;
+  const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const bounce = (dot: Animated.Value, delay: number) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.timing(dot, { toValue: -5, duration: 220, useNativeDriver: true }),
-          Animated.timing(dot, { toValue: 0, duration: 220, useNativeDriver: true }),
-          Animated.delay(500),
-        ]),
-      );
-    const a1 = bounce(d1, 0);
-    const a2 = bounce(d2, 140);
-    const a3 = bounce(d3, 280);
-    a1.start(); a2.start(); a3.start();
-    return () => { a1.stop(); a2.stop(); a3.stop(); };
+    const loop = Animated.loop(
+      Animated.timing(anim, { toValue: 1, duration: 900, useNativeDriver: true }),
+    );
+    loop.start();
+    return () => loop.stop();
   }, []);
 
+  const dotStyle = (phase: number) => ({
+    transform: [{
+      translateY: anim.interpolate({
+        inputRange: [
+          Math.max(0, phase - 0.18),
+          phase,
+          Math.min(1, phase + 0.18),
+        ],
+        outputRange: [0, -6, 0],
+        extrapolate: 'clamp',
+      }),
+    }],
+  });
+
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 4 }}>
-      {[d1, d2, d3].map((dot, i) => (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 6 }}>
+      {[0.2, 0.5, 0.8].map((phase, i) => (
         <Animated.View
           key={i}
-          style={{
+          style={[{
             width: 7, height: 7, borderRadius: 4,
             backgroundColor: '#22c55e',
-            transform: [{ translateY: dot }],
-          }}
+          }, dotStyle(phase)]}
         />
       ))}
     </View>
@@ -72,8 +74,18 @@ export function ChatBottomSheet() {
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const scrollYRef = useRef(0);
-  const translateY = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(SHEET_HEIGHT)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
   const keyboardPadding = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (isOpen) {
+      Animated.parallel([
+        Animated.timing(backdropOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+        Animated.timing(translateY, { toValue: 0, duration: 300, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     const show = Keyboard.addListener(
@@ -107,7 +119,8 @@ export function ChatBottomSheet() {
     setMessages([]);
     setInput('');
     setBusy(false);
-    translateY.setValue(0);
+    translateY.setValue(SHEET_HEIGHT);
+    backdropOpacity.setValue(0);
     keyboardPadding.setValue(0);
     closeChat();
   }, [closeChat]);
@@ -224,11 +237,13 @@ export function ChatBottomSheet() {
     <Modal
       visible={isOpen}
       transparent
-      animationType="slide"
+      animationType="none"
       onRequestClose={handleClose}
     >
-      <View style={styles.overlay}>
-        <TouchableOpacity style={StyleSheet.absoluteFill} onPress={handleClose} activeOpacity={1} />
+      <View style={{ flex: 1 }} pointerEvents="box-none">
+        <Animated.View style={[styles.overlay, { opacity: backdropOpacity }]}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} onPress={handleClose} activeOpacity={1} />
+        </Animated.View>
 
         <Animated.View
           style={[styles.sheet, { transform: [{ translateY }] }]}
@@ -364,11 +379,14 @@ export function ChatBottomSheet() {
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
   },
   sheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     height: SHEET_HEIGHT,
     backgroundColor: colors.background,
     borderTopLeftRadius: 24,

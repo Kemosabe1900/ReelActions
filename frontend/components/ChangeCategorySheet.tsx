@@ -20,6 +20,20 @@ export function ChangeCategorySheet({ visible, videoId, currentCategory, existin
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const keyboardOffset = useRef(new Animated.Value(0)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(300)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(backdropOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 0, duration: 280, useNativeDriver: true }),
+      ]).start();
+    } else {
+      backdropOpacity.setValue(0);
+      slideAnim.setValue(300);
+    }
+  }, [visible]);
 
   useEffect(() => {
     const show = Keyboard.addListener(
@@ -82,10 +96,12 @@ export function ChangeCategorySheet({ visible, videoId, currentCategory, existin
   const categories = existingCategories.filter(c => c !== currentCategory);
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-      <View style={styles.root}>
-        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handleClose} />
-        <Animated.View style={[styles.sheet, { marginBottom: keyboardOffset }]}>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={handleClose}>
+      <View style={{ flex: 1 }} pointerEvents="box-none">
+        <Animated.View style={[styles.root, { opacity: backdropOpacity }]}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handleClose} />
+        </Animated.View>
+        <Animated.View style={[styles.sheetContainer, { transform: [{ translateY: slideAnim }], marginBottom: keyboardOffset }]}>
           <View style={styles.handle} />
 
           <View style={styles.titleRow}>
@@ -169,11 +185,14 @@ export function ChangeCategorySheet({ visible, videoId, currentCategory, existin
 
 const styles = StyleSheet.create({
   root: {
-    flex: 1,
-    justifyContent: 'flex-end',
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.55)',
   },
-  sheet: {
+  sheetContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,

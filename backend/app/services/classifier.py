@@ -34,7 +34,7 @@ Given a video transcript (and optionally images), extract structured knowledge.
 ## Step 3 — Set schema_status
 "mapped" for Workouts, Recipes, or Finance. "pending_review" for anything else.
 
-## Output (JSON only, no markdown)
+## Output (JSON only, no markdown, always respond even if transcript is minimal or music-only)
 {"category": str, "title": str (max 60 chars, specific and descriptive), "summary": str (2-3 sentences), "structured_data": {...}, "schema_status": "mapped"|"pending_review"}"""
 
 
@@ -96,6 +96,9 @@ class ClassificationService:
                 logger.info("[classifier] stop_reason: %s content blocks: %d", response.stop_reason, len(response.content))
                 raw = response.content[0].text.strip() if response.content else ""
                 logger.info("[classifier] raw response (attempt %d): %s", attempt, raw[:300])
+                if not raw:
+                    last_error = ValueError("Empty response from classifier")
+                    continue
                 # strip markdown code fences if present
                 if raw.startswith("```"):
                     raw = raw.split("```")[1]

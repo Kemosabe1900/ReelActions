@@ -115,8 +115,12 @@ class VideoProcessor:
                 transcript_result = self.transcriber.transcribe(audio_path, video_url=video_url)
                 transcript_text = transcript_result.text.strip()
 
-                # fallback to caption if transcript is empty
-                classify_text = transcript_text or caption or None
+                # strip music/sound-only transcripts — not useful for classification
+                import re as _re
+                clean_transcript = _re.sub(r'[\[\(][^\]\)]*[\]\)]', '', transcript_text).strip()
+                useful_transcript = clean_transcript if len(clean_transcript) >= 20 else None
+
+                classify_text = useful_transcript or caption or None
                 if not classify_text:
                     raise RuntimeError("No speech or caption found in this video — cannot classify")
 

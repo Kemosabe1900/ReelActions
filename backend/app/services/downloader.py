@@ -86,13 +86,30 @@ def _fetch_ytdlp_meta(url: str) -> tuple[str, str | None]:
     return "", None
 
 
+def _to_mp3(raw_path: str, job_id: str) -> str:
+    """Convert any video/audio file to mp3 using ffmpeg. Returns mp3 path."""
+    tmp = tempfile.gettempdir()
+    mp3_path = os.path.join(tmp, f"{job_id}_audio.mp3")
+    conv = subprocess.run(
+        ["ffmpeg", "-y", "-i", raw_path, "-vn", "-acodec", "libmp3lame", "-q:a", "5", mp3_path],
+        capture_output=True, text=True, timeout=120,
+    )
+    if conv.returncode != 0:
+        logger.error("[downloader] ffmpeg failed (rc=%d): %s", conv.returncode, conv.stderr.strip()[:500])
+        raise RuntimeError(f"ffmpeg conversion failed: {conv.stderr.strip()[:300]}")
+    logger.info("[downloader] ffmpeg -> %s", mp3_path)
+    try:
+        os.remove(raw_path)
+    except OSError:
+        pass
+    return mp3_path
+
+
 def _download_via_ytdlp(url: str, job_id: str) -> tuple[str, str, str | None]:
     caption, thumbnail_url = _fetch_ytdlp_meta(url)
     tmp = tempfile.gettempdir()
     cmd = [
         "yt-dlp",
-        # vcodec=none = audio-only stream (no merge needed)
-        # best[ext=mp4] = pre-combined single file fallback (still no merge)
         "--format", "bestaudio[vcodec=none][ext=m4a]/bestaudio[vcodec=none]/best[ext=mp4]/best",
         "--no-playlist",
         "--no-check-formats",
@@ -111,31 +128,16 @@ def _download_via_ytdlp(url: str, job_id: str) -> tuple[str, str, str | None]:
             f"stdout={result.stdout.strip()[:200]} stderr={result.stderr.strip()[:200]}"
         )
     raw_path = matches[0]
-    raw_size = os.path.getsize(raw_path)
-    logger.info("[downloader] downloaded %s (%d bytes)", raw_path, raw_size)
-
-    mp3_path = os.path.join(tmp, f"{job_id}_audio.mp3")
-    conv = subprocess.run(
-        ["ffmpeg", "-y", "-i", raw_path, "-vn", "-acodec", "libmp3lame", "-q:a", "5", mp3_path],
-        capture_output=True, text=True, timeout=120,
-    )
-    if conv.returncode == 0:
-        logger.info("[downloader] ffmpeg conversion succeeded -> %s", mp3_path)
-        try:
-            os.remove(raw_path)
-        except OSError:
-            pass
-        return mp3_path, caption, thumbnail_url
-
-    logger.error("[downloader] ffmpeg conversion failed (rc=%d): %s", conv.returncode, conv.stderr.strip()[:500])
-    raise RuntimeError(f"ffmpeg conversion failed: {conv.stderr.strip()[:300]}")
+    logger.info("[downloader] downloaded %s (%d bytes)", raw_path, os.path.getsize(raw_path))
+    return _to_mp3(raw_path, job_id), caption, thumbnail_url
 
 
 def download_audio(url: str, job_id: str) -> tuple[str, str, str | None]:
     """Download audio from URL. Returns (audio_path, caption, thumbnail_url). Routes TikTok through TikWM."""
     if "tiktok.com" in url:
         from app.services.tiktok_scraper import download_tiktok_audio
-        return download_tiktok_audio(url, job_id)
+        raw_path, caption, thumbnail_url = download_tiktok_audio(url, job_id)
+        return _to_mp3(raw_path, job_id), caption, thumbnail_url
     return _download_via_ytdlp(url, job_id)
 
 

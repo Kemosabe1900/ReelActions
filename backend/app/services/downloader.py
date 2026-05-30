@@ -88,11 +88,9 @@ def _download_via_ytdlp(url: str, job_id: str) -> tuple[str, str, str | None]:
     tmp = tempfile.gettempdir()
     cmd = [
         "yt-dlp",
-        "--format", "bestaudio/best",
-        "--extract-audio",
-        "--audio-format", "mp3",
-        "--audio-quality", "5",
+        "--format", "bestaudio[ext=m4a]/bestaudio/best",
         "--no-playlist",
+        "--no-check-formats",
         "--max-filesize", "50m",
         "--output", os.path.join(tmp, f"{job_id}.%(ext)s"),
         url,

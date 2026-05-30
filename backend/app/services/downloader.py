@@ -107,7 +107,20 @@ def _download_via_ytdlp(url: str, job_id: str) -> tuple[str, str, str | None]:
             f"Audio file not found after download. "
             f"stdout={result.stdout.strip()[:200]} stderr={result.stderr.strip()[:200]}"
         )
-    return matches[0], caption, thumbnail_url
+    raw_path = matches[0]
+    mp3_path = os.path.join(tmp, f"{job_id}_audio.mp3")
+    conv = subprocess.run(
+        ["ffmpeg", "-y", "-i", raw_path, "-vn", "-acodec", "libmp3lame", "-q:a", "5", mp3_path],
+        capture_output=True, text=True, timeout=120,
+    )
+    if conv.returncode == 0:
+        try:
+            os.remove(raw_path)
+        except OSError:
+            pass
+        return mp3_path, caption, thumbnail_url
+    # ffmpeg failed — send raw file, let Whisper try
+    return raw_path, caption, thumbnail_url
 
 
 def download_audio(url: str, job_id: str) -> tuple[str, str, str | None]:

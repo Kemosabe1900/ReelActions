@@ -412,13 +412,22 @@ export default function HomeScreen() {
                 <View key={job.jobId}>
                   <View style={styles.saveItem}>
                     <View style={styles.thumbnail}>
-                      {job.failed
-                        ? <Ionicons name="alert-circle-outline" size={22} color={colors.error} />
-                        : <ActivityIndicator size="small" color={colors.primary} />}
+                      {job.failed ? (
+                        <Ionicons name="alert-circle-outline" size={22} color={colors.error} />
+                      ) : (
+                        <>
+                          {job.url.includes('instagram.com')
+                            ? <FontAwesome5 name="instagram" size={20} color={colors.onSurfaceVariant} />
+                            : <Ionicons name="logo-tiktok" size={20} color={colors.onSurfaceVariant} />}
+                          <ActivityIndicator size="small" color={colors.primary} style={{ position: 'absolute', bottom: 4, right: 4 }} />
+                        </>
+                      )}
                     </View>
                     <View style={styles.cardContent}>
                       <Text style={styles.saveTitle}>{job.failed ? 'Processing failed' : 'Processing...'}</Text>
-                      <Text style={styles.saveMeta} numberOfLines={1}>{job.url}</Text>
+                      <Text style={styles.saveMeta}>
+                        {job.failed ? 'Tap × to dismiss' : `Saving from ${job.url.includes('instagram.com') ? 'Instagram' : 'TikTok'}`}
+                      </Text>
                     </View>
                     {job.failed && (
                       <TouchableOpacity hitSlop={12} onPress={() => setPendingJobs(prev => prev.filter(j => j.jobId !== job.jobId))}>

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Modal, View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform,
+  StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, radii, spacing } from '@/constants/theme';
@@ -17,6 +17,20 @@ export function SaveVideoSheet({ visible, onClose, onSubmitted }: Props) {
   const [url, setUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(300)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(backdropOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 0, duration: 280, useNativeDriver: true }),
+      ]).start();
+    } else {
+      backdropOpacity.setValue(0);
+      slideAnim.setValue(300);
+    }
+  }, [visible]);
 
   function reset() {
     setUrl('');
@@ -48,59 +62,62 @@ export function SaveVideoSheet({ visible, onClose, onSubmitted }: Props) {
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={handleClose} />
-        <View style={styles.sheet}>
-          <View style={styles.handle} />
+    <Modal visible={visible} transparent animationType="none" onRequestClose={handleClose}>
+      <View style={{ flex: 1 }} pointerEvents="box-none">
+        <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handleClose} />
+        </Animated.View>
+        <Animated.View style={[styles.sheetWrapper, { transform: [{ translateY: slideAnim }] }]}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <View style={styles.sheet}>
+              <View style={styles.handle} />
 
-          <View style={styles.header}>
-            <Text style={styles.title}>Save a Video</Text>
-            <TouchableOpacity onPress={handleClose} hitSlop={12}>
-              <Ionicons name="close" size={22} color={colors.onSurfaceVariant} />
-            </TouchableOpacity>
-          </View>
+              <View style={styles.header}>
+                <Text style={styles.title}>Save a Video</Text>
+                <TouchableOpacity onPress={handleClose} hitSlop={12}>
+                  <Ionicons name="close" size={22} color={colors.onSurfaceVariant} />
+                </TouchableOpacity>
+              </View>
 
-          <Text style={styles.sub}>Paste a TikTok or Instagram URL</Text>
+              <Text style={styles.sub}>Paste a TikTok or Instagram URL</Text>
 
-          <TextInput
-            style={styles.input}
-            value={url}
-            onChangeText={setUrl}
-            placeholder="https://www.tiktok.com/..."
-            placeholderTextColor={colors.outline}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="url"
-            editable={!submitting}
-          />
+              <TextInput
+                style={styles.input}
+                value={url}
+                onChangeText={setUrl}
+                placeholder="https://www.tiktok.com/..."
+                placeholderTextColor={colors.outline}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                editable={!submitting}
+              />
 
-          {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
+              {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
 
-          <TouchableOpacity
-            style={[styles.saveBtn, (!url.trim() || submitting) && styles.saveBtnDisabled]}
-            onPress={handleSave}
-            disabled={!url.trim() || submitting}
-            activeOpacity={0.85}
-          >
-            {submitting ? (
-              <ActivityIndicator color={colors.background} size="small" />
-            ) : (
-              <Text style={styles.saveBtnText}>Save</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+              <TouchableOpacity
+                style={[styles.saveBtn, (!url.trim() || submitting) && styles.saveBtnDisabled]}
+                onPress={handleSave}
+                disabled={!url.trim() || submitting}
+                activeOpacity={0.85}
+              >
+                {submitting ? (
+                  <ActivityIndicator color={colors.background} size="small" />
+                ) : (
+                  <Text style={styles.saveBtnText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </Animated.View>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
+  sheetWrapper: { position: 'absolute', bottom: 0, left: 0, right: 0 },
   sheet: {
     backgroundColor: '#1a1a1a',
     borderTopLeftRadius: 24, borderTopRightRadius: 24,

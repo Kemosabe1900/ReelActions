@@ -109,7 +109,7 @@ class VideoProcessor:
                     category=classification.category,
                 )
             else:
-                audio_path, caption = download_audio(video_url, job_id)
+                audio_path, caption, thumbnail_url = download_audio(video_url, job_id)
 
                 self._update_job(job_id, "transcribing")
                 transcript_result = self.transcriber.transcribe(audio_path, video_url=video_url)
@@ -120,9 +120,10 @@ class VideoProcessor:
                 if not classify_text:
                     raise RuntimeError("No speech or caption found in this video — cannot classify")
 
-                self._supabase.table("videos").update({
-                    "transcript": transcript_text or caption,
-                }).eq("id", video_id).execute()
+                update_data: dict = {"transcript": transcript_text or caption}
+                if thumbnail_url:
+                    update_data["thumbnail_url"] = thumbnail_url
+                self._supabase.table("videos").update(update_data).eq("id", video_id).execute()
 
                 frames = extract_frames_for_vision(video_url, transcript_result.segments)
 

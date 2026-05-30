@@ -37,6 +37,7 @@ export type Video = {
   tried_count: number;
   tried_at: string | null;
   created_at: string;
+  thumbnail_url: string | null;
 };
 
 export type Profile = {

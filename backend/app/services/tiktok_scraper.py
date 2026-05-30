@@ -29,6 +29,7 @@ def download_tiktok_audio(url: str, job_id: str) -> str:
         raise RuntimeError("TikWM returned no download URL")
 
     caption = (video_data.get("title") or video_data.get("desc") or "").strip()
+    thumbnail_url = (video_data.get("cover") or video_data.get("origin_cover") or "").strip() or None
 
     tmp_path = os.path.join(tempfile.gettempdir(), f"{job_id}.mp4")
     try:
@@ -42,4 +43,4 @@ def download_tiktok_audio(url: str, job_id: str) -> str:
         alert(f"TikWM video download failed for job {job_id}: {e}")
         raise RuntimeError(f"TikWM download failed: {e}")
 
-    return tmp_path, caption
+    return tmp_path, caption, thumbnail_url

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -224,9 +224,13 @@ export default function CategoryScreen() {
               delayLongPress={150}
             >
               <View style={styles.thumbnailWrapper}>
-                <LinearGradient colors={['#1c1c1c', '#252525']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.thumbnail}>
-                  <Ionicons name="play" size={20} color="#22c55e" />
-                </LinearGradient>
+                {video.thumbnail_url ? (
+                  <Image source={{ uri: video.thumbnail_url }} style={styles.thumbnail} resizeMode="cover" />
+                ) : (
+                  <LinearGradient colors={['#1c1c1c', '#252525']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.thumbnail}>
+                    <Ionicons name="play" size={20} color="#22c55e" />
+                  </LinearGradient>
+                )}
                 {video.tried && (
                   <View style={styles.triedOverlay}>
                     <Ionicons name="checkmark-circle" size={18} color={colors.primary} />

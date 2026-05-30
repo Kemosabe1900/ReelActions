@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, ActivityIndicator, Linking, Share } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, ActivityIndicator, Linking, Share, Image } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { colors, typography, spacing, radii } from '@/constants/theme';
@@ -226,7 +226,11 @@ export default function VideoDetailScreen() {
       ) : (
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={styles.hero}>
-            <Text style={styles.heroIcon}>▶</Text>
+            {video.thumbnail_url ? (
+              <Image source={{ uri: video.thumbnail_url }} style={styles.heroImage} resizeMode="cover" />
+            ) : (
+              <Text style={styles.heroIcon}>▶</Text>
+            )}
             <View style={styles.sourcePill}>
               <Text style={styles.sourcePillText}>{getSource(video.url)}</Text>
             </View>
@@ -313,6 +317,11 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   heroIcon: { fontSize: 48, color: colors.onSurfaceVariant },
+  heroImage: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    borderRadius: radii.xl,
+  },
   sourcePill: {
     position: 'absolute',
     bottom: 12,

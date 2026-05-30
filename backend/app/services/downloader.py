@@ -68,21 +68,23 @@ def download_images(url: str, job_id: str) -> list[str]:
     return b64_images
 
 
-def _fetch_ytdlp_caption(url: str) -> str:
-    """Quick metadata fetch — returns video description/caption or empty string."""
+def _fetch_ytdlp_meta(url: str) -> tuple[str, str | None]:
+    """Quick metadata fetch — returns (caption, thumbnail_url)."""
     cmd = ["yt-dlp", "--dump-json", "--no-download", "--no-playlist", url]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         if result.returncode == 0 and result.stdout.strip():
             info = json.loads(result.stdout.strip().split('\n')[0])
-            return (info.get("description") or info.get("title") or "").strip()
+            caption = (info.get("description") or info.get("title") or "").strip()
+            thumbnail = info.get("thumbnail") or None
+            return caption, thumbnail
     except Exception:
         pass
-    return ""
+    return "", None
 
 
-def _download_via_ytdlp(url: str, job_id: str) -> tuple[str, str]:
-    caption = _fetch_ytdlp_caption(url)
+def _download_via_ytdlp(url: str, job_id: str) -> tuple[str, str, str | None]:
+    caption, thumbnail_url = _fetch_ytdlp_meta(url)
     tmp = tempfile.gettempdir()
     cmd = [
         "yt-dlp",
@@ -104,11 +106,11 @@ def _download_via_ytdlp(url: str, job_id: str) -> tuple[str, str]:
             f"Audio file not found after download. "
             f"stdout={result.stdout.strip()[:200]} stderr={result.stderr.strip()[:200]}"
         )
-    return matches[0], caption
+    return matches[0], caption, thumbnail_url
 
 
-def download_audio(url: str, job_id: str) -> tuple[str, str]:
-    """Download audio from URL. Returns (audio_path, caption). Routes TikTok through TikWM."""
+def download_audio(url: str, job_id: str) -> tuple[str, str, str | None]:
+    """Download audio from URL. Returns (audio_path, caption, thumbnail_url). Routes TikTok through TikWM."""
     if "tiktok.com" in url:
         from app.services.tiktok_scraper import download_tiktok_audio
         return download_tiktok_audio(url, job_id)

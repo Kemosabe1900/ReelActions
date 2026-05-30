@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useRef, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TouchableHighlight, ActivityIndicator, Animated, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TouchableHighlight, ActivityIndicator, Animated, Modal, TextInput, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
@@ -15,9 +15,13 @@ function SaveItem({ save, onPress, onLongPress }: { save: Video; onPress: () => 
   return (
     <TouchableHighlight onPress={onPress} onLongPress={onLongPress} delayLongPress={150} underlayColor="#1e1e1e" activeOpacity={1} style={styles.saveItem}>
       <View style={styles.saveItemInner}>
-        <LinearGradient colors={['#1c1c1c', '#252525']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.thumbnail}>
-          <Ionicons name="play" size={18} color="#22c55e" />
-        </LinearGradient>
+        {save.thumbnail_url ? (
+          <Image source={{ uri: save.thumbnail_url }} style={styles.thumbnail} resizeMode="cover" />
+        ) : (
+          <LinearGradient colors={['#1c1c1c', '#252525']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.thumbnail}>
+            <Ionicons name="play" size={18} color="#22c55e" />
+          </LinearGradient>
+        )}
         <View style={styles.cardContent}>
           <View style={styles.cardTop}>
             {save.category && (
@@ -459,9 +463,13 @@ export default function HomeScreen() {
               activeOpacity={0.75}
               onPress={() => router.push(`/video/${resurface.id}`)}
             >
-              <LinearGradient colors={['#1c1c1c', '#252525']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.thumbnail}>
-                <Ionicons name="play" size={18} color="#22c55e" />
-              </LinearGradient>
+              {resurface.thumbnail_url ? (
+                <Image source={{ uri: resurface.thumbnail_url }} style={styles.thumbnail} resizeMode="cover" />
+              ) : (
+                <LinearGradient colors={['#1c1c1c', '#252525']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.thumbnail}>
+                  <Ionicons name="play" size={18} color="#22c55e" />
+                </LinearGradient>
+              )}
               <View style={styles.cardContent}>
                 {resurface.category && (
                   <View style={[styles.categoryChip, { backgroundColor: getCategoryColor(resurface.category) + '20' }]}>

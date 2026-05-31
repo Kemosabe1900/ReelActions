@@ -32,7 +32,7 @@ function StructuredData({ category, data }: { category: string | null; data: Rec
     return (
       <View style={styles.structuredBlock}>
         <Text style={styles.blockLabel}>WORKOUT DETAILS</Text>
-        {d.duration_minutes && <Row label="Duration" value={`${d.duration_minutes} min`} />}
+        {!!d.duration_minutes && <Row label="Duration" value={`${d.duration_minutes} min`} />}
         {d.equipment?.length > 0 && <Row label="Equipment" value={d.equipment.join(', ')} />}
         {d.muscle_groups?.length > 0 && <Row label="Muscles" value={d.muscle_groups.join(', ')} />}
         {d.exercises?.length > 0 && (
@@ -60,9 +60,9 @@ function StructuredData({ category, data }: { category: string | null; data: Rec
       <View style={styles.structuredBlock}>
         <Text style={styles.blockLabel}>RECIPE DETAILS</Text>
         {d.cuisine && <Row label="Cuisine" value={d.cuisine} />}
-        {d.servings && <Row label="Servings" value={String(d.servings)} />}
-        {d.prep_time_minutes && <Row label="Prep" value={`${d.prep_time_minutes} min`} />}
-        {d.cook_time_minutes && <Row label="Cook" value={`${d.cook_time_minutes} min`} />}
+        {!!d.servings && <Row label="Servings" value={String(d.servings)} />}
+        {!!d.prep_time_minutes && <Row label="Prep" value={`${d.prep_time_minutes} min`} />}
+        {!!d.cook_time_minutes && <Row label="Cook" value={`${d.cook_time_minutes} min`} />}
         {d.ingredients?.length > 0 && (
           <View style={styles.listBlock}>
             <Text style={styles.listTitle}>Ingredients</Text>

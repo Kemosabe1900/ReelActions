@@ -436,7 +436,8 @@ const styles = StyleSheet.create({
     ...typography.bodyBase,
     color: colors.primary,
     fontFamily: 'HankenGrotesk_700Bold',
-    width: 16,
+    minWidth: 24,
+    textAlign: 'right',
   },
   listItemText: {
     ...typography.bodyBase,

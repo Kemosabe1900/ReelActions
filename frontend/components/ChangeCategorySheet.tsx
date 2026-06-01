@@ -27,7 +27,7 @@ export function ChangeCategorySheet({ visible, videoId, currentCategory, existin
     if (visible) {
       Animated.parallel([
         Animated.timing(backdropOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
-        Animated.timing(slideAnim, { toValue: 0, duration: 280, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 0, duration: 280, useNativeDriver: false }),
       ]).start();
     } else {
       backdropOpacity.setValue(0);
@@ -101,7 +101,7 @@ export function ChangeCategorySheet({ visible, videoId, currentCategory, existin
         <Animated.View style={[styles.root, { opacity: backdropOpacity }]}>
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handleClose} />
         </Animated.View>
-        <Animated.View style={[styles.sheetContainer, { transform: [{ translateY: slideAnim }], marginBottom: keyboardOffset }]}>
+        <Animated.View style={[styles.sheetContainer, { transform: [{ translateY: slideAnim }], bottom: keyboardOffset }]}>
           <View style={styles.handle} />
 
           <View style={styles.titleRow}>
@@ -192,7 +192,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
     backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,

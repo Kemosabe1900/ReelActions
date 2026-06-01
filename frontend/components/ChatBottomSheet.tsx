@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView,
-  TextInput, Platform, Dimensions,
+  TextInput, Platform, Dimensions, Image,
   PanResponder, Animated, Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -330,7 +330,11 @@ export function ChatBottomSheet() {
                                 onPress={() => handleVideoTap(src.id)}
                               >
                                 <View style={styles.sourceThumb}>
-                                  <Text style={styles.sourceThumbIcon}>▶</Text>
+                                  {src.thumbnail_url ? (
+                                    <Image source={{ uri: src.thumbnail_url }} style={styles.sourceThumbImg} />
+                                  ) : (
+                                    <Text style={styles.sourceThumbIcon}>▶</Text>
+                                  )}
                                 </View>
                                 <View style={styles.sourceInfo}>
                                   <Text style={styles.sourceTitle} numberOfLines={2}>{src.title}</Text>
@@ -539,14 +543,16 @@ const styles = StyleSheet.create({
     borderColor: '#2e2e2e',
   },
   sourceThumb: {
-    width: 38,
-    height: 38,
+    width: 48,
+    height: 48,
     backgroundColor: '#1c1c1c',
     borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    overflow: 'hidden',
   },
+  sourceThumbImg: { width: 48, height: 48, borderRadius: radii.md },
   sourceThumbIcon: { fontSize: 13, color: colors.onSurfaceVariant },
   sourceInfo: { flex: 1, gap: 2 },
   sourceTitle: {

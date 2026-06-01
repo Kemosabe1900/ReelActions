@@ -1,3 +1,9 @@
+import json
+import logging
+import re
+import threading
+
+logger = logging.getLogger(__name__)
 from datetime import datetime, timezone, timedelta
 from typing import Generator, Optional
 from anthropic import Anthropic
@@ -14,6 +20,7 @@ BASE_SYSTEM_PROMPT = (
     "(e.g. 'Here\\'s what I found.', 'Found a few saves on that.', 'Got something on that.').\n"
     "When nothing exists: decline naturally "
     "(e.g. 'Nothing saved on that yet.', 'No saves on that topic.', 'You haven\\'t saved anything on that.').\n"
+    "Never use em dashes (—) in responses. Use a comma or period instead.\n"
     "For questions about when videos were saved, how many, or what categories — use the Library Summary provided."
 )
 
@@ -34,7 +41,7 @@ class ChatService:
             db = get_db()
             result = (
                 db.table("videos")
-                .select("id,title,category,url,created_at,tried")
+                .select("id,title,category,url,created_at,tried,thumbnail_url")
                 .eq("user_id", user_id)
                 .order("created_at", desc=True)
                 .execute()
@@ -75,6 +82,34 @@ class ChatService:
         except Exception:
             return "", []
 
+    def _identify_relevant_chunks(self, message: str, chunks: list[dict]) -> list[dict]:
+        """Ask Haiku which chunks actually answer the query. Fallback to threshold on failure."""
+        if not chunks:
+            return []
+        chunk_list = "\n".join(
+            f'ID:{c["video_id"]} | {c["video_title"]} — {c["content"][:80]}'
+            for c in chunks
+        )
+        try:
+            resp = self.client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=150,
+                messages=[{"role": "user", "content": (
+                    f'Query: "{message}"\n\nVideos:\n{chunk_list}\n\n'
+                    "Which video IDs directly answer this query? "
+                    "Return ONLY a JSON array of ID strings, e.g. [\"id1\"]. Return [] if none are relevant."
+                )}],
+            )
+            raw = resp.content[0].text.strip()
+            logger.info("[chat] relevance raw: %s", raw)
+            match = re.search(r'\[.*?\]', raw, re.DOTALL)
+            ids = set(json.loads(match.group())) if match else set()
+            logger.info("[chat] relevant ids: %s", ids)
+            return [c for c in chunks if str(c["video_id"]) in ids]
+        except Exception as e:
+            logger.warning("[chat] relevance check failed (%s), falling back to threshold", e)
+            return [c for c in chunks if c.get("similarity", 0) >= 0.55]
+
     def stream_response(
         self,
         message: str,
@@ -98,20 +133,15 @@ class ChatService:
 
         full_context = f"Library Summary:\n{snapshot}\n\nRelevant content (semantic search):\n{rag_context}"
 
-        seen_urls: set[str] = set()
-        sources = []
-
-        if is_temporal:
-            for v in recent_videos:
-                url = v.get("url", "")
-                if url not in seen_urls:
-                    seen_urls.add(url)
-                    sources.append({"id": str(v["id"]), "url": url, "title": v.get("title") or "Untitled"})
-        else:
-            for c in chunks:
-                if c.get("similarity", 0) >= 0.25 and c["video_url"] not in seen_urls:
-                    seen_urls.add(c["video_url"])
-                    sources.append({"id": str(c["video_id"]), "url": c["video_url"], "title": c["video_title"]})
+        # Kick off relevance check in background so it runs while text streams
+        relevant_chunks: list[dict] = []
+        relevance_thread: threading.Thread | None = None
+        if not is_temporal:
+            def _check() -> None:
+                nonlocal relevant_chunks
+                relevant_chunks = self._identify_relevant_chunks(message, chunks)
+            relevance_thread = threading.Thread(target=_check, daemon=True)
+            relevance_thread.start()
 
         messages = [
             *[{"role": m["role"], "content": m["content"]} for m in history],
@@ -132,6 +162,23 @@ class ChatService:
         except Exception as e:
             yield {"type": "error", "detail": str(e)}
             return
+
+        seen_urls: set[str] = set()
+        sources = []
+
+        if is_temporal:
+            for v in recent_videos:
+                url = v.get("url", "")
+                if url not in seen_urls:
+                    seen_urls.add(url)
+                    sources.append({"id": str(v["id"]), "url": url, "title": v.get("title") or "Untitled", "thumbnail_url": v.get("thumbnail_url")})
+        else:
+            if relevance_thread:
+                relevance_thread.join(timeout=5)
+            for c in relevant_chunks:
+                if c["video_url"] not in seen_urls:
+                    seen_urls.add(c["video_url"])
+                    sources.append({"id": str(c["video_id"]), "url": c["video_url"], "title": c["video_title"], "thumbnail_url": c.get("thumbnail_url")})
 
         yield {"type": "sources", "urls": sources}
 

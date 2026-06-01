@@ -19,7 +19,10 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
   });
   if (!res.ok) {
-    throw new Error(`API error ${res.status}: ${await res.text()}`);
+    const body = await res.text();
+    let detail: string | undefined;
+    try { detail = JSON.parse(body)?.detail; } catch {}
+    throw new Error(detail ?? 'Something went wrong. Please try again.');
   }
   if (res.status === 204) return undefined as T;
   return res.json();
@@ -75,6 +78,7 @@ export type ChatSource = {
   id: string;
   url: string;
   title: string;
+  thumbnail_url: string | null;
 };
 
 export const api = {

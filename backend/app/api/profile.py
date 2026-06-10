@@ -6,7 +6,7 @@ from app.database import get_db
 router = APIRouter(tags=["profile"])
 
 
-def calculate_streak(tried_at_values: list) -> int:
+def _tried_dates(tried_at_values: list) -> set:
     dates = set()
     for val in tried_at_values:
         if val:
@@ -15,7 +15,11 @@ def calculate_streak(tried_at_values: list) -> int:
                 dates.add(d)
             except Exception:
                 pass
+    return dates
 
+
+def calculate_streak(tried_at_values: list) -> int:
+    dates = _tried_dates(tried_at_values)
     if not dates:
         return 0
 
@@ -30,6 +34,13 @@ def calculate_streak(tried_at_values: list) -> int:
         streak += 1
         current -= timedelta(days=1)
     return streak
+
+
+def active_weekday_indices(tried_at_values: list) -> list:
+    today = datetime.now(timezone.utc).date()
+    monday = today - timedelta(days=today.weekday())
+    dates = _tried_dates(tried_at_values)
+    return sorted({(d - monday).days for d in dates if 0 <= (d - monday).days <= 6})
 
 
 @router.get("/profile")
@@ -52,6 +63,7 @@ def get_profile(user_id: str = Depends(get_current_user)):
     tried = sum(1 for v in videos_result.data if v["tried"])
     tried_at_values = [v["tried_at"] for v in videos_result.data if v.get("tried_at")]
     streak = calculate_streak(tried_at_values)
+    active_days = active_weekday_indices(tried_at_values)
 
     email = None
     try:
@@ -63,6 +75,7 @@ def get_profile(user_id: str = Depends(get_current_user)):
     return {
         **profile_result.data[0],
         "current_streak": streak,
+        "active_days": active_days,
         "explorer_tried": tried,
         "explorer_total": total,
         "email": email,

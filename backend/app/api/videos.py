@@ -33,7 +33,8 @@ def submit_video(
     db = get_db()
 
     existing = (
-        db.table("videos").select("id").eq("user_id", user_id).eq("url", body.url).limit(1).execute()
+        db.table("videos").select("id").eq("user_id", user_id).eq("url", body.url)
+        .is_("deleted_at", "null").limit(1).execute()
     )
     if existing.data:
         raise HTTPException(status_code=409, detail="You've already saved this video")
@@ -59,7 +60,12 @@ def list_videos(
     user_id: str = Depends(get_current_user),
 ):
     db = get_db()
-    query = db.table("videos").select("*").eq("user_id", user_id).order("created_at", desc=True)
+    query = (
+        db.table("videos").select("*")
+        .eq("user_id", user_id)
+        .is_("deleted_at", "null")
+        .order("created_at", desc=True)
+    )
     if category is not None:
         if category == "Uncategorized":
             query = query.is_("category", "null")
@@ -77,6 +83,7 @@ def get_video(video_id: str, user_id: str = Depends(get_current_user)):
     result = (
         db.table("videos").select("*")
         .eq("id", video_id).eq("user_id", user_id)
+        .is_("deleted_at", "null")
         .limit(1).execute()
     )
     if not result.data:
@@ -90,12 +97,13 @@ def delete_video(video_id: str, user_id: str = Depends(get_current_user)):
     exists = (
         db.table("videos").select("id")
         .eq("id", video_id).eq("user_id", user_id)
+        .is_("deleted_at", "null")
         .limit(1).execute()
     )
     if not exists.data:
         raise HTTPException(status_code=404, detail="Video not found")
     db.table("transcript_chunks").delete().eq("video_id", video_id).execute()
-    db.table("videos").delete().eq("id", video_id).eq("user_id", user_id).execute()
+    db.table("videos").update({"deleted_at": datetime.now(timezone.utc).isoformat()}).eq("id", video_id).eq("user_id", user_id).execute()
 
 
 class UpdateVideoRequest(BaseModel):
@@ -109,6 +117,7 @@ def update_video(video_id: str, body: UpdateVideoRequest, user_id: str = Depends
     exists = (
         db.table("videos").select("id")
         .eq("id", video_id).eq("user_id", user_id)
+        .is_("deleted_at", "null")
         .limit(1).execute()
     )
     if not exists.data:
@@ -141,6 +150,7 @@ def toggle_tried(video_id: str, user_id: str = Depends(get_current_user)):
     fetch = (
         db.table("videos").select("tried,tried_count")
         .eq("id", video_id).eq("user_id", user_id)
+        .is_("deleted_at", "null")
         .limit(1).execute()
     )
     if not fetch.data:

@@ -1,14 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, Alert } from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, Alert, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Flame } from 'lucide-react-native';
 import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
 import { router } from 'expo-router';
 import { colors, typography, spacing, radii } from '@/constants/theme';
-import { api, Profile } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useData } from '@/contexts/DataContext';
 import { computeStreakLocal } from '@/lib/streak';
+import { api } from '@/services/api';
 
 const CARD_GAP = 12;
 const STAT_CARD_WIDTH = (Dimensions.get('window').width - spacing.containerPadding * 2 - CARD_GAP) / 2;
@@ -35,10 +36,29 @@ function getCuratorSince(createdAt: string): string {
 
 
 export default function ProfileScreen() {
-  const { signOut } = useAuth();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const { signOut, session } = useAuth();
+  const { profile, loading, error, refresh } = useData();
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+
+  const meta = session?.user?.user_metadata;
+  const displayName = profile?.display_name ?? meta?.full_name ?? meta?.name ?? getDisplayName(profile?.email ?? null);
+  const avatarInitial = displayName.charAt(0).toUpperCase();
+
+  const startEdit = () => {
+    setNameInput(displayName);
+    setEditingName(true);
+  };
+
+  const saveName = async () => {
+    const trimmed = nameInput.trim();
+    setEditingName(false);
+    if (!trimmed || trimmed === displayName) return;
+    try {
+      await api.profile.update(trimmed);
+      await refresh();
+    } catch {}
+  };
 
   const handleSignOut = () => {
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
@@ -49,21 +69,6 @@ export default function ProfileScreen() {
       } },
     ]);
   };
-
-  const load = useCallback(async () => {
-    try {
-      const p = await api.profile.get();
-      setProfile(p);
-      setError(false);
-    } catch (e) {
-      console.error('Profile load error:', e);
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
 
   if (loading) {
     return (
@@ -83,7 +88,7 @@ export default function ProfileScreen() {
           <Text style={{ ...typography.bodyBase, color: colors.onSurfaceVariant, fontFamily: 'HankenGrotesk_400Regular', textAlign: 'center' }}>
             Couldn't load. Check your connection.
           </Text>
-          <TouchableOpacity onPress={load} hitSlop={12}>
+          <TouchableOpacity onPress={refresh} hitSlop={12}>
             <Text style={{ ...typography.bodyBase, color: colors.primary, fontFamily: 'HankenGrotesk_600SemiBold' }}>Try again</Text>
           </TouchableOpacity>
         </View>
@@ -154,13 +159,29 @@ export default function ProfileScreen() {
               <Text style={styles.fireText}>🔥 {streak}</Text>
             </View>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{getAvatarInitial(profile?.email ?? null)}</Text>
+              <Text style={styles.avatarText}>{avatarInitial}</Text>
             </View>
           </View>
         </View>
 
         <View style={styles.nameSection}>
-          <Text style={styles.name}>{getDisplayName(profile?.email ?? null)}</Text>
+          {editingName ? (
+            <TextInput
+              style={styles.nameInput}
+              value={nameInput}
+              onChangeText={setNameInput}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={saveName}
+              onBlur={saveName}
+              placeholderTextColor={colors.onSurfaceVariant}
+            />
+          ) : (
+            <TouchableOpacity onPress={startEdit} style={styles.nameRow} activeOpacity={0.7}>
+              <Text style={styles.name}>{displayName}</Text>
+              <Ionicons name="pencil-outline" size={15} color={colors.onSurfaceVariant} />
+            </TouchableOpacity>
+          )}
           <Text style={styles.since}>{profile ? getCuratorSince(profile.created_at) : ''}</Text>
         </View>
 
@@ -282,10 +303,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   name: {
     ...typography.displayLg,
     color: colors.onSurface,
     fontFamily: 'HankenGrotesk_800ExtraBold',
+  },
+  nameInput: {
+    ...typography.displayLg,
+    color: colors.onSurface,
+    fontFamily: 'HankenGrotesk_800ExtraBold',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.primary,
+    minWidth: 120,
+    textAlign: 'center',
+    paddingBottom: 2,
   },
   since: {
     ...typography.bodySm,

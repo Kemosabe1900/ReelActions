@@ -1,12 +1,12 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { colors, typography, spacing, radii } from '@/constants/theme';
 import { getCategoryColor, getCategoryIcon } from '@/constants/categories';
-import { api, Video, Profile } from '@/services/api';
+import { Video } from '@/services/api';
+import { useData } from '@/contexts/DataContext';
 
 const CARD_GAP = 12;
 const CARD_WIDTH = (Dimensions.get('window').width - spacing.containerPadding * 2 - CARD_GAP) / 2;
@@ -34,32 +34,7 @@ function groupByCategory(videos: Video[]): CategoryStat[] {
 }
 
 export default function LibraryScreen() {
-  const [videos, setVideos] = useState<Video[]>([]);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const initialLoad = useRef(true);
-
-  const load = useCallback(async (showSpinner = true) => {
-    if (showSpinner) setLoading(true);
-    try {
-      const [v, p] = await Promise.all([api.videos.list(), api.profile.get()]);
-      setVideos(v);
-      setProfile(p);
-      setError(false);
-    } catch (e) {
-      console.error('Library load error:', e);
-      if (showSpinner) setError(true);
-    } finally {
-      if (showSpinner) setLoading(false);
-    }
-  }, []);
-
-  useFocusEffect(useCallback(() => {
-    const first = initialLoad.current;
-    if (first) initialLoad.current = false;
-    load(first);
-  }, [load]));
+  const { videos, profile, loading, error, refresh } = useData();
 
   if (loading) {
     return (
@@ -79,7 +54,7 @@ export default function LibraryScreen() {
           <Text style={{ ...typography.bodyBase, color: colors.onSurfaceVariant, fontFamily: 'HankenGrotesk_400Regular', textAlign: 'center' }}>
             Couldn't load. Check your connection.
           </Text>
-          <TouchableOpacity onPress={() => load(true)} hitSlop={12}>
+          <TouchableOpacity onPress={refresh} hitSlop={12}>
             <Text style={{ ...typography.bodyBase, color: colors.primary, fontFamily: 'HankenGrotesk_600SemiBold' }}>Try again</Text>
           </TouchableOpacity>
         </View>
@@ -110,8 +85,8 @@ export default function LibraryScreen() {
 
         {categories.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyEmoji}>📭</Text>
-            <Text style={styles.emptyText}>No saves yet. Tap + on the home screen to save your first Reel.</Text>
+            <Ionicons name="albums-outline" size={48} color="rgba(255,255,255,0.2)" />
+            <Text style={styles.emptyText}>Nothing here yet. Share a video from Instagram or TikTok to ReelActions to get started.</Text>
           </View>
         ) : (
           <View style={styles.grid}>
@@ -182,7 +157,7 @@ const styles = StyleSheet.create({
   fireText: { ...typography.bodySm, color: colors.secondary, fontFamily: 'HankenGrotesk_700Bold' },
   totalCount: { ...typography.bodySm, color: colors.onSurfaceVariant, fontFamily: 'HankenGrotesk_400Regular', marginTop: -8 },
   emptyState: { alignItems: 'center', paddingVertical: 40, gap: 12 },
-  emptyEmoji: { fontSize: 48 },
+
   emptyText: { ...typography.bodyBase, color: colors.onSurfaceVariant, fontFamily: 'HankenGrotesk_400Regular', textAlign: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: CARD_GAP },
   card: {

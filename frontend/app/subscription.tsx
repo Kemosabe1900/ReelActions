@@ -61,7 +61,7 @@ export default function SubscriptionScreen() {
       router.replace('/(auth)/sign-up');
     } catch (e: any) {
       if (!e.userCancelled) {
-        Alert.alert('Purchase failed', e.message ?? 'Something went wrong.');
+        Alert.alert('Purchase failed', 'Something went wrong. Please try again.');
       }
     } finally {
       setPurchasing(false);

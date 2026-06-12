@@ -17,6 +17,7 @@ const IS_EXPO_GO = Constants.appOwnership === 'expo';
 import { api } from '@/services/api';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { PurchasesProvider, usePurchases } from '@/contexts/PurchasesContext';
+import { DataProvider } from '@/contexts/DataContext';
 import { registerForPushNotifications } from '@/services/notifications';
 import { DEV_MODE, SENTRY_DSN, POSTHOG_API_KEY } from '@/constants/config';
 import { PostHogProvider } from 'posthog-react-native';
@@ -71,7 +72,13 @@ function PaywallGate() {
 function AppProviders({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
   const userId = DEV_MODE ? 'a72e67a7-b3b8-4890-9c52-61a7be63639e' : session?.user?.id;
-  return <PurchasesProvider userId={userId}>{children}</PurchasesProvider>;
+  return (
+    <PurchasesProvider userId={userId}>
+      <DataProvider>
+        {children}
+      </DataProvider>
+    </PurchasesProvider>
+  );
 }
 
 export default function RootLayout() {

@@ -6,7 +6,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
 import { colors, typography, spacing, radii } from '@/constants/theme';
 import { getCategoryColor } from '@/constants/categories';
-import { api, Video, Profile } from '@/services/api';
+import { api, Video } from '@/services/api';
+import { useData } from '@/contexts/DataContext';
 import { SaveVideoSheet } from '@/components/SaveVideoSheet';
 import { ChangeCategorySheet } from '@/components/ChangeCategorySheet';
 import { computeStreakLocal, getActiveDaysLocal } from '@/lib/streak';
@@ -170,10 +171,7 @@ function SourceIcon({ url }: { url: string }) {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const [videos, setVideos] = useState<Video[]>([]);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const { videos, profile, loading, error, refresh } = useData();
   const [showSave, setShowSave] = useState(false);
   const [pendingJobs, setPendingJobs] = useState<PendingJob[]>([]);
   const [contextVideo, setContextVideo] = useState<Video | null>(null);
@@ -186,6 +184,10 @@ export default function HomeScreen() {
   const dotAnimations = useRef(DAYS.map(() => new Animated.Value(1))).current;
   const celebrateOpacity = useRef(new Animated.Value(0)).current;
   const celebrateTranslateY = useRef(new Animated.Value(10)).current;
+
+  useEffect(() => {
+    setPendingJobs(prev => prev.filter(job => !videos.some(v => v.id === job.videoId)));
+  }, [videos]);
 
   const animateDot = useCallback((dayIndex: number) => {
     const anim = dotAnimations[dayIndex];
@@ -204,33 +206,11 @@ export default function HomeScreen() {
     ]).start();
   }, [dotAnimations, celebrateOpacity, celebrateTranslateY]);
 
-  const load = useCallback(async () => {
-    try {
-      const [v, p] = await Promise.all([api.videos.list(), api.profile.get()]);
-      setVideos(v);
-      setProfile(p);
-      setPendingJobs(prev => prev.filter(job => !v.some(video => video.id === job.videoId)));
-      setError(false);
-    } catch (e) {
-      console.error('Home load error:', e);
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const initialLoad = useRef(true);
+  const isFirstFocus = useRef(true);
   useFocusEffect(useCallback(() => {
-    const first = initialLoad.current;
-    if (first) { initialLoad.current = false; load(); }
-    else {
-      api.videos.list().then(v => {
-        setVideos(v);
-        setPendingJobs(prev => prev.filter(job => !v.some(video => video.id === job.videoId)));
-      }).catch(() => {});
-      api.profile.get().then(setProfile).catch(() => {});
-    }
-  }, [load]));
+    if (isFirstFocus.current) { isFirstFocus.current = false; return; }
+    refresh();
+  }, [refresh]));
 
   useEffect(() => {
     const active = pendingJobs.filter(j => !j.failed);
@@ -244,7 +224,7 @@ export default function HomeScreen() {
           const status = await api.jobs.get(job.jobId);
           if (status.status === 'completed') {
             setPendingJobs(prev => prev.filter(j => j.jobId !== job.jobId));
-            load();
+            refresh();
           } else if (status.status === 'failed') {
             setPendingJobs(prev => prev.map(j => j.jobId === job.jobId ? { ...j, failed: true } : j));
           }
@@ -252,7 +232,7 @@ export default function HomeScreen() {
       }
     }, 3000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [pendingJobs, load]);
+  }, [pendingJobs, refresh]);
 
   useEffect(() => {
     const days = getActiveDaysLocal(profile?.tried_at_values ?? []);
@@ -271,21 +251,17 @@ export default function HomeScreen() {
   }, []);
 
   const handleDelete = async (id: string) => {
-    setVideos(prev => prev.filter(v => v.id !== id));
     try {
       await api.videos.delete(id);
-    } catch (e) {
-      api.videos.list().then(setVideos).catch(() => {});
-    }
+      refresh();
+    } catch {}
   };
 
   const handleToggleTried = async (id: string) => {
     try {
-      const updated = await api.videos.toggleTried(id);
-      setVideos(prev => prev.map(v => v.id === id ? updated : v));
-    } catch (e) {
-      console.error('Toggle tried error:', e);
-    }
+      await api.videos.toggleTried(id);
+      refresh();
+    } catch {}
   };
 
   const handleRename = async () => {
@@ -293,16 +269,23 @@ export default function HomeScreen() {
     const id = renameVideo.id;
     const newTitle = renameText.trim();
     setRenameVideo(null);
-    setVideos(prev => prev.map(v => v.id === id ? { ...v, title: newTitle } : v));
     try {
       await api.videos.rename(id, newTitle);
-    } catch {
-      api.videos.list().then(setVideos).catch(() => {});
-    }
+      refresh();
+    } catch {}
   };
 
   const recent = videos.slice(0, 4);
-  const resurface = videos.filter(v => !v.tried).at(-1) ?? null;
+  const resurface = (() => {
+    if (videos.length < 10) return null;
+    const untried = [...videos].filter(v => !v.tried).sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+    if (!untried.length) return null;
+    const poolSize = Math.max(1, Math.floor(untried.length * 0.3));
+    const pool = untried.slice(0, poolSize);
+    return pool[Math.floor(Math.random() * pool.length)];
+  })();
 
   const streak = computeStreakLocal(profile?.tried_at_values ?? []);
   const tried = profile?.explorer_tried ?? 0;
@@ -328,7 +311,7 @@ export default function HomeScreen() {
           <Text style={{ ...typography.bodyBase, color: colors.onSurfaceVariant, fontFamily: 'HankenGrotesk_400Regular', textAlign: 'center' }}>
             Couldn't load. Check your connection.
           </Text>
-          <TouchableOpacity onPress={load} hitSlop={12}>
+          <TouchableOpacity onPress={refresh} hitSlop={12}>
             <Text style={{ ...typography.bodyBase, color: colors.primary, fontFamily: 'HankenGrotesk_600SemiBold' }}>Try again</Text>
           </TouchableOpacity>
         </View>
@@ -452,12 +435,12 @@ export default function HomeScreen() {
 
         {videos.length === 0 && pendingJobs.length === 0 && (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyEmoji}>📱</Text>
-            <Text style={styles.emptyTitle}>Start your collection</Text>
-            <Text style={styles.emptyText}>Save your first TikTok or Reel. ReelActions will extract everything worth knowing from it.</Text>
+            <Ionicons name="videocam-outline" size={48} color="rgba(255,255,255,0.2)" />
+            <Text style={styles.emptyTitle}>Save your first video</Text>
+            <Text style={styles.emptyText}>Open Instagram or TikTok, tap Share on any video, and choose ReelActions. Or paste a link using the button below.</Text>
             <TouchableOpacity style={styles.emptyBtn} onPress={() => setShowSave(true)} activeOpacity={0.8}>
               <Ionicons name="add" size={18} color={colors.background} />
-              <Text style={styles.emptyBtnText}>Save your first Reel</Text>
+              <Text style={styles.emptyBtnText}>Paste a link</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -524,9 +507,9 @@ export default function HomeScreen() {
           currentCategory={changeCategoryVideo.category}
           existingCategories={[...new Set(videos.map(v => v.category).filter(Boolean) as string[])]}
           onClose={() => setChangeCategoryVideo(null)}
-          onUpdated={(newCategory) => {
-            setVideos(prev => prev.map(v => v.id === changeCategoryVideo.id ? { ...v, category: newCategory } : v));
+          onUpdated={() => {
             setChangeCategoryVideo(null);
+            refresh();
           }}
         />
       )}
@@ -762,7 +745,7 @@ const styles = StyleSheet.create({
     paddingVertical: 48,
     gap: 12,
   },
-  emptyEmoji: { fontSize: 48 },
+
   emptyTitle: {
     ...typography.titleLg,
     color: colors.onSurface,

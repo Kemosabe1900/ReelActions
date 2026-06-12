@@ -147,7 +147,7 @@ export default function SignUpScreen() {
           <TouchableOpacity style={styles.cta} onPress={handleEmail} disabled={loading} activeOpacity={0.8}>
             {loading
               ? <ActivityIndicator color={colors.onPrimary} />
-              : <Text style={styles.ctaText}>Continue with Email</Text>
+              : <Text style={styles.ctaText}>Sign Up</Text>
             }
           </TouchableOpacity>
 

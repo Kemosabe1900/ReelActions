@@ -82,7 +82,7 @@ export function SaveVideoSheet({ visible, onClose, onSubmitted }: Props) {
       onSubmitted(job_id, video_id, trimmed);
     } catch (e: any) {
       setSubmitting(false);
-      setErrorMsg(e.message || 'Failed to submit URL');
+      setErrorMsg(e.message || 'Something went wrong. Please try again.');
     }
   }
 

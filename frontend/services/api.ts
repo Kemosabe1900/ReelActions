@@ -53,6 +53,7 @@ export type Profile = {
   explorer_total: number;
   subscription_status: string;
   email: string | null;
+  display_name: string | null;
   created_at: string;
 };
 
@@ -119,6 +120,11 @@ export const api = {
 
   profile: {
     get: () => request<Profile>('/profile'),
+    update: (display_name: string) =>
+      request<{ ok: boolean }>('/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({ display_name }),
+      }),
   },
 
   chat: {

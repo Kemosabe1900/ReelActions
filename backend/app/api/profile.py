@@ -1,5 +1,6 @@
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 from app.dependencies import get_current_user
 from app.database import get_db
 
@@ -74,3 +75,14 @@ def get_profile(user_id: str = Depends(get_current_user)):
         "explorer_total": total,
         "email": email,
     }
+
+
+class ProfileUpdate(BaseModel):
+    display_name: str
+
+
+@router.patch("/profile")
+def update_profile(body: ProfileUpdate, user_id: str = Depends(get_current_user)):
+    db = get_db()
+    db.table("profiles").update({"display_name": body.display_name.strip()}).eq("id", user_id).execute()
+    return {"ok": True}

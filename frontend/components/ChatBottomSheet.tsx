@@ -257,7 +257,7 @@ export function ChatBottomSheet() {
             {/* Header */}
             <View style={styles.header}>
               <Text style={styles.headerTitle}>
-                Reel<Text style={styles.headerTitleGreen}>Actions</Text>
+                Reel<Text style={styles.headerTitleGreen}>Scout</Text>
               </Text>
               <TouchableOpacity onPress={handleClose} style={styles.closeBtn} activeOpacity={0.7}>
                 <Ionicons name="close" size={18} color={colors.onSurfaceVariant} />

@@ -1,7 +1,13 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import Purchases, { CustomerInfo, PurchasesPackage } from 'react-native-purchases';
+import * as Sentry from '@sentry/react-native';
 import { REVENUECAT_API_KEY_IOS, REVENUECAT_API_KEY_ANDROID, DEV_MODE } from '@/constants/config';
+import { api } from '@/services/api';
+
+// Native store unavailable in Expo Go — skip RC entirely
+const IS_EXPO_GO = Constants.appOwnership === 'expo';
 
 type PurchasesContextValue = {
   isSubscribed: boolean;
@@ -19,12 +25,17 @@ export function PurchasesProvider({ children, userId }: { children: ReactNode; u
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (DEV_MODE) { setLoading(false); return; }
+    if (DEV_MODE || IS_EXPO_GO) { setLoading(false); return; }
 
     const apiKey = Platform.OS === 'ios' ? REVENUECAT_API_KEY_IOS : REVENUECAT_API_KEY_ANDROID;
     if (!apiKey) { setLoading(false); return; }
 
-    Purchases.configure({ apiKey });
+    try {
+      Purchases.configure({ apiKey });
+    } catch {
+      setLoading(false);
+      return;
+    }
 
     if (userId) {
       Purchases.logIn(userId).catch(() => {});
@@ -39,20 +50,32 @@ export function PurchasesProvider({ children, userId }: { children: ReactNode; u
       const offerings = await Purchases.getOfferings();
       if (offerings.current) {
         setPackages(offerings.current.availablePackages);
+      } else {
+        Sentry.captureMessage(`[RC] No current offering. All: ${JSON.stringify(Object.keys(offerings.all))}`, 'warning');
       }
-    } catch {
-      // offerings unavailable (simulator, no products configured yet)
+    } catch (e: any) {
+      Sentry.captureException(e, { tags: { component: 'PurchasesContext', operation: 'getOfferings' } });
     }
   }
 
   async function checkSubscription() {
     try {
       const info = await Purchases.getCustomerInfo();
-      setIsSubscribed(isActive(info));
-    } catch {
-    } finally {
-      setLoading(false);
+      if (isActive(info)) {
+        setIsSubscribed(true);
+        setLoading(false);
+        return;
+      }
+    } catch {}
+    if (userId) {
+      try {
+        const profile = await api.profile.get();
+        if (profile.subscription_status === 'active') {
+          setIsSubscribed(true);
+        }
+      } catch {}
     }
+    setLoading(false);
   }
 
   function isActive(info: CustomerInfo): boolean {

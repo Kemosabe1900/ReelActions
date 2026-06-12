@@ -1,9 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Flame } from 'lucide-react-native';
+import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
+import { router } from 'expo-router';
 import { colors, typography, spacing, radii } from '@/constants/theme';
 import { api, Profile } from '@/services/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { computeStreakLocal } from '@/lib/streak';
 
 const CARD_GAP = 12;
 const STAT_CARD_WIDTH = (Dimensions.get('window').width - spacing.containerPadding * 2 - CARD_GAP) / 2;
@@ -30,9 +35,20 @@ function getCuratorSince(createdAt: string): string {
 
 
 export default function ProfileScreen() {
+  const { signOut } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+
+  const handleSignOut = () => {
+    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign out', style: 'destructive', onPress: async () => {
+        await signOut();
+        router.replace('/(auth)/sign-in');
+      } },
+    ]);
+  };
 
   const load = useCallback(async () => {
     try {
@@ -75,7 +91,7 @@ export default function ProfileScreen() {
     );
   }
 
-  const streak = profile?.current_streak ?? 0;
+  const streak = computeStreakLocal(profile?.tried_at_values ?? []);
   const saved = profile?.explorer_total ?? 0;
   const tried = profile?.explorer_tried ?? 0;
   const pct = saved > 0 ? Math.round((tried / saved) * 100) : 0;
@@ -157,11 +173,25 @@ export default function ProfileScreen() {
               {stat.watermark && (
                 <Flame size={80} color="#94a3b8" fill="#94a3b8" style={styles.watermark} />
               )}
-              <View style={[styles.iconWrap, stat.flameIcon && { backgroundColor: '#f97316' + '1a' }]}>
+              <View style={styles.iconWrap}>
                 {stat.flameIcon ? (
-                  <Flame size={22} color={DIM_ORANGE} fill={DIM_ORANGE} />
+                  <>
+                    <Svg width={42} height={42} style={styles.glowLayer}>
+                      <Defs>
+                        <RadialGradient id="flameGlow" cx="50%" cy="50%" r="50%">
+                          <Stop offset="0%" stopColor="#f97316" stopOpacity="0.3" />
+                          <Stop offset="40%" stopColor="#f97316" stopOpacity="0.12" />
+                          <Stop offset="100%" stopColor="#f97316" stopOpacity="0" />
+                        </RadialGradient>
+                      </Defs>
+                      <Circle cx={21} cy={21} r={21} fill="url(#flameGlow)" />
+                    </Svg>
+                    <Flame size={22} color={DIM_ORANGE} fill={DIM_ORANGE} />
+                  </>
                 ) : (
-                  <Ionicons name={stat.icon as any} size={20} color={stat.iconColor} />
+                  <View style={styles.iconBg}>
+                    <Ionicons name={stat.icon as any} size={20} color={stat.iconColor} />
+                  </View>
                 )}
               </View>
               <View style={styles.statValueRow}>
@@ -185,24 +215,7 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.settingsSection}>
-          <Text style={styles.sectionLabel}>ACCOUNT SETTINGS</Text>
-          <View style={styles.settingsList}>
-            <TouchableOpacity style={styles.settingsRow} activeOpacity={0.7}>
-              <View style={styles.settingsLeft}>
-                <Ionicons name="settings-outline" size={18} color={colors.onSurfaceVariant} />
-                <Text style={styles.settingsLabel}>Preferences</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceVariant} />
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.settingsRow, styles.settingsRowLast]} activeOpacity={0.7}>
-              <View style={styles.settingsLeft}>
-                <Ionicons name="notifications-outline" size={18} color={colors.onSurfaceVariant} />
-                <Text style={styles.settingsLabel}>Notifications</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceVariant} />
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity style={styles.signOutRow} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.signOutRow} activeOpacity={0.7} onPress={handleSignOut}>
             <Ionicons name="log-out-outline" size={18} color={colors.error} />
             <Text style={styles.signOutLabel}>Sign Out</Text>
           </TouchableOpacity>
@@ -301,12 +314,21 @@ const styles = StyleSheet.create({
     bottom: 35,
   },
   iconWrap: {
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconBg: {
     width: 34,
     height: 34,
     borderRadius: radii.lg,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#1c1c1c',
+  },
+  glowLayer: {
+    position: 'absolute',
   },
   statValueRow: {
     flexDirection: 'row',

@@ -79,7 +79,7 @@ export default function ChatModal() {
             <Text style={styles.aiAvatarText}>✦</Text>
           </View>
           <View style={styles.sheetTitleWrap}>
-            <Text style={styles.sheetTitle}>AI Assistant</Text>
+            <Text style={styles.sheetTitle}>ReelScout</Text>
             <Text style={styles.sheetSubtitle}>Ask about your saved reels</Text>
           </View>
           <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn} activeOpacity={0.7}>

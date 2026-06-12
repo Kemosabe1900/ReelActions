@@ -15,7 +15,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.nems.reelactions"
+      "bundleIdentifier": "com.nems.reelactions",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.nems.reelactions",
@@ -61,7 +64,7 @@
       "expo-secure-store",
       "expo-web-browser",
       "expo-apple-authentication",
-      "@sentry/react-native"
+      ["@sentry/react-native", {"organization": "nemsapps", "project": "reelactions-mobile"}]
     ]
   }
 }

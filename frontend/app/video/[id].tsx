@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, ActivityIndicator, Linking, Share, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Linking, Share, Image, useWindowDimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { colors, typography, spacing, radii } from '@/constants/theme';
@@ -229,10 +230,12 @@ export default function VideoDetailScreen() {
             {video.thumbnail_url ? (
               <Image source={{ uri: video.thumbnail_url }} style={styles.heroImage} resizeMode="cover" />
             ) : (
-              <Text style={styles.heroIcon}>▶</Text>
+              <View style={styles.heroFallback}>
+                <SourceIcon url={video.url} size={56} color={colors.onSurfaceVariant} />
+              </View>
             )}
-            <View style={styles.sourcePill}>
-              <Text style={styles.sourcePillText}>{getSource(video.url)}</Text>
+            <View style={styles.sourceCorner}>
+              <SourceIcon url={video.url} size={16} color="#ffffff" />
             </View>
           </View>
 
@@ -310,31 +313,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
     borderRadius: radii.xl,
     marginTop: spacing.stackGap,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#2e2e2e',
+    overflow: 'hidden',
     position: 'relative',
   },
-  heroIcon: { fontSize: 48, color: colors.onSurfaceVariant },
+  heroFallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   heroImage: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
-    borderRadius: radii.xl,
   },
-  sourcePill: {
+  sourceCorner: {
     position: 'absolute',
-    bottom: 12,
-    left: 12,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: radii.full,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  sourcePillText: {
-    ...typography.labelCaps,
-    color: colors.onSurface,
-    fontFamily: 'HankenGrotesk_700Bold',
+    bottom: 10,
+    right: 10,
   },
   titleBlock: { gap: 4 },
   videoTitle: {

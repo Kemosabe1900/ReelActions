@@ -97,19 +97,19 @@ export function SaveVideoSheet({ visible, onClose, onSubmitted }: Props) {
             <View style={styles.handle} />
 
             <View style={styles.header}>
-              <Text style={styles.title}>Save a Video</Text>
+              <Text style={styles.title}>Save a video</Text>
               <TouchableOpacity onPress={handleClose} hitSlop={12}>
                 <Ionicons name="close" size={22} color={colors.onSurfaceVariant} />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.sub}>Paste a TikTok or Instagram URL</Text>
+            <Text style={styles.sub}>Paste a video link</Text>
 
             <TextInput
               style={styles.input}
               value={url}
               onChangeText={setUrl}
-              placeholder="https://www.tiktok.com/..."
+              placeholder=""
               placeholderTextColor={colors.outline}
               autoCapitalize="none"
               autoCorrect={false}

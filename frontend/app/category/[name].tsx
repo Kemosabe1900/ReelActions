@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, typography, spacing, radii } from '@/constants/theme';
 import { getCategoryColor } from '@/constants/categories';
@@ -202,67 +203,80 @@ export default function CategoryScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <View style={styles.statsRow}>
-            <View style={styles.statBox}>
-              <Text style={styles.statNum}>{videos.length}</Text>
-              <Text style={styles.statLabel}>SAVED</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statBox}>
-              <Text style={styles.statNum}>{tried}</Text>
-              <Text style={styles.statLabel}>TRIED</Text>
-            </View>
-          </View>
+          {(() => {
+            const total = videos.length;
+            const ratio = total > 0 ? tried / total : 0;
+            const totalMinutes = videos.reduce((sum, v) => {
+              const sd = (v.structured_data ?? {}) as Record<string, any>;
+              const d = Number(sd.duration_minutes ?? sd.duration ?? 1);
+              return sum + (isFinite(d) ? d : 1);
+            }, 0);
+            const totalMins = Math.round(totalMinutes);
+            return (
+              <View style={styles.statsRow}>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>COMPLETED</Text>
+                  <View style={styles.statNumRow}>
+                    <Text style={styles.statBigGreen}>{tried}</Text>
+                    <Text style={styles.statDenom}>/ {total}</Text>
+                  </View>
+                  <View style={styles.progressTrack}>
+                    <View style={[styles.progressFill, { width: `${Math.round(ratio * 100)}%` }]} />
+                  </View>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>TOTAL TIME</Text>
+                  <View style={styles.statNumRow}>
+                    <Text style={styles.statBigWhite}>{totalMins}</Text>
+                    <Text style={styles.statDenom}>min</Text>
+                  </View>
+                </View>
+              </View>
+            );
+          })()}
 
-          {videos.map((video) => (
-            <TouchableOpacity
-              key={video.id}
-              style={styles.videoCard}
-              activeOpacity={0.75}
-              onPress={() => router.push(`/video/${video.id}`)}
-              onLongPress={() => setContextVideo(video)}
-              delayLongPress={150}
-            >
-              <View style={styles.thumbnailWrapper}>
-                {video.thumbnail_url ? (
-                  <Image source={{ uri: video.thumbnail_url }} style={styles.thumbnail} resizeMode="cover" />
-                ) : (
-                  <LinearGradient colors={['#1c1c1c', '#252525']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.thumbnail}>
-                    <Ionicons name="play" size={20} color="#22c55e" />
-                  </LinearGradient>
-                )}
-                {video.tried && (
-                  <View style={styles.triedOverlay}>
-                    <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
-                  </View>
-                )}
-              </View>
-              <View style={styles.cardContent}>
-                <Text style={styles.videoTitle} numberOfLines={2}>
-                  {video.title ?? 'Processing...'}
-                </Text>
-                <View style={styles.metaRow}>
-                  <View style={styles.sourceBadge}>
-                    <Text style={styles.sourceBadgeText}>{getSource(video.url)}</Text>
-                  </View>
-                  <Text style={styles.videoDate}>{timeAgo(video.created_at)}</Text>
+          {videos.map((video, idx) => {
+            const isTikTok = video.url.includes('tiktok.com');
+            const isInstagram = video.url.includes('instagram.com');
+            return (
+              <React.Fragment key={video.id}>
+              {idx > 0 && <View style={styles.separator} />}
+              <TouchableOpacity
+                style={styles.videoCard}
+                activeOpacity={0.75}
+                onPress={() => router.push(`/video/${video.id}`)}
+                onLongPress={() => setContextVideo(video)}
+                delayLongPress={150}
+              >
+                <View style={styles.thumbnailWrapper}>
+                  {video.thumbnail_url ? (
+                    <Image source={{ uri: video.thumbnail_url }} style={styles.thumbnail} resizeMode="cover" />
+                  ) : (
+                    <LinearGradient colors={['#1c1c1c', '#252525']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.thumbnail}>
+                      <Ionicons name="play" size={20} color="#22c55e" />
+                    </LinearGradient>
+                  )}
+                  {video.tried && (
+                    <View style={styles.triedOverlay}>
+                      <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+                    </View>
+                  )}
                 </View>
-              </View>
-              {video.tried ? (
-                <View style={styles.triedBtn}>
-                  <Ionicons name="checkmark-circle" size={26} color={colors.primary} />
+                <View style={styles.cardContent}>
+                  <Text style={styles.videoTitle} numberOfLines={2}>
+                    {video.title ?? 'Processing...'}
+                  </Text>
+                  <View style={styles.metaRow}>
+                    {isTikTok && <Ionicons name="logo-tiktok" size={14} color={colors.onSurfaceVariant} />}
+                    {isInstagram && <FontAwesome5 name="instagram" size={14} color={colors.onSurfaceVariant} />}
+                    {!isTikTok && !isInstagram && <Ionicons name="play-circle-outline" size={14} color={colors.onSurfaceVariant} />}
+                    <Text style={styles.videoDate}>{timeAgo(video.created_at)}</Text>
+                  </View>
                 </View>
-              ) : (
-                <TouchableOpacity
-                  style={styles.triedBtn}
-                  onPress={(e) => { e.stopPropagation(); handleToggleTried(video.id); }}
-                  hitSlop={8}
-                >
-                  <Ionicons name="checkmark-circle-outline" size={26} color={colors.onSurfaceVariant} />
-                </TouchableOpacity>
-              )}
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+              </React.Fragment>
+            );
+          })}
 
           {videos.length === 0 && (
             <View style={styles.empty}>
@@ -331,51 +345,77 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
-    backgroundColor: '#1a1a1a',
-    borderRadius: radii.xl,
-    borderWidth: 1,
-    borderColor: '#2e2e2e',
+    gap: 12,
     marginBottom: spacing.elementTight,
-    overflow: 'hidden',
   },
-  statBox: {
+  statCard: {
     flex: 1,
-    alignItems: 'center',
-    paddingVertical: 14,
-    gap: 2,
-  },
-  statNum: {
-    ...typography.headlineMd,
-    color: colors.onSurface,
-    fontFamily: 'HankenGrotesk_800ExtraBold',
-  },
-  statLabel: {
-    ...typography.labelCaps,
-    color: colors.onSurfaceVariant,
-    fontFamily: 'HankenGrotesk_700Bold',
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: '#2e2e2e',
-    marginVertical: 12,
-  },
-  videoCard: {
     backgroundColor: '#1a1a1a',
     borderRadius: radii.lg,
-    padding: spacing.cardInner,
+    borderWidth: 1,
+    borderColor: '#2e2e2e',
+    padding: 16,
+    gap: 8,
+  },
+  statLabel: {
+    fontSize: 11,
+    letterSpacing: 1,
+    fontFamily: 'HankenGrotesk_700Bold',
+    color: colors.onSurfaceVariant,
+  },
+  statNumRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+  },
+  statBigGreen: {
+    fontSize: 32,
+    fontFamily: 'HankenGrotesk_800ExtraBold',
+    color: colors.primary,
+    letterSpacing: -1,
+  },
+  statBigWhite: {
+    fontSize: 32,
+    fontFamily: 'HankenGrotesk_800ExtraBold',
+    color: colors.onSurface,
+    letterSpacing: -1,
+  },
+  statDenom: {
+    fontSize: 14,
+    fontFamily: 'HankenGrotesk_600SemiBold',
+    color: colors.onSurfaceVariant,
+  },
+  progressTrack: {
+    height: 4,
+    backgroundColor: '#2e2e2e',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 2,
+  },
+  videoCard: {
+    paddingVertical: 12,
+    paddingHorizontal: 4,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    borderWidth: 1,
-    borderColor: '#2e2e2e',
+  },
+  separator: {
+    height: 1,
+    backgroundColor: '#2e2e2e',
+    marginLeft: 72,
   },
   thumbnailWrapper: {
     position: 'relative',
     flexShrink: 0,
   },
   thumbnail: {
-    width: 64,
-    height: 64,
+    width: 56,
+    height: 56,
     borderRadius: radii.md,
     overflow: 'hidden',
     alignItems: 'center',

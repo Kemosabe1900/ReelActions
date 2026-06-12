@@ -1,5 +1,6 @@
 import React, { useEffect, useCallback, useRef, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TouchableHighlight, ActivityIndicator, Animated, Modal, TextInput, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TouchableHighlight, ActivityIndicator, Animated, Modal, TextInput, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
@@ -8,6 +9,7 @@ import { getCategoryColor } from '@/constants/categories';
 import { api, Video, Profile } from '@/services/api';
 import { SaveVideoSheet } from '@/components/SaveVideoSheet';
 import { ChangeCategorySheet } from '@/components/ChangeCategorySheet';
+import { computeStreakLocal, getActiveDaysLocal } from '@/lib/streak';
 
 type PendingJob = { jobId: string; videoId: string; url: string; failed: boolean };
 
@@ -164,23 +166,10 @@ function SourceIcon({ url }: { url: string }) {
   return <Ionicons name="play-circle-outline" size={14} color={colors.onSurfaceVariant} />;
 }
 
-function getActiveDaysFromVideos(videos: Video[]): number[] {
-  const now = new Date();
-  const todayIndex = (now.getDay() + 6) % 7;
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - todayIndex);
-  startOfWeek.setHours(0, 0, 0, 0);
-  const active = new Set<number>();
-  for (const v of videos) {
-    if (!v.tried_at) continue;
-    const d = new Date(v.tried_at);
-    if (d >= startOfWeek) active.add((d.getDay() + 6) % 7);
-  }
-  return Array.from(active);
-}
 
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
   const [videos, setVideos] = useState<Video[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -220,6 +209,7 @@ export default function HomeScreen() {
       const [v, p] = await Promise.all([api.videos.list(), api.profile.get()]);
       setVideos(v);
       setProfile(p);
+      setPendingJobs(prev => prev.filter(job => !v.some(video => video.id === job.videoId)));
       setError(false);
     } catch (e) {
       console.error('Home load error:', e);
@@ -233,7 +223,13 @@ export default function HomeScreen() {
   useFocusEffect(useCallback(() => {
     const first = initialLoad.current;
     if (first) { initialLoad.current = false; load(); }
-    else { api.videos.list().then(setVideos).catch(() => {}); api.profile.get().then(setProfile).catch(() => {}); }
+    else {
+      api.videos.list().then(v => {
+        setVideos(v);
+        setPendingJobs(prev => prev.filter(job => !v.some(video => video.id === job.videoId)));
+      }).catch(() => {});
+      api.profile.get().then(setProfile).catch(() => {});
+    }
   }, [load]));
 
   useEffect(() => {
@@ -259,16 +255,16 @@ export default function HomeScreen() {
   }, [pendingJobs, load]);
 
   useEffect(() => {
+    const days = getActiveDaysLocal(profile?.tried_at_values ?? []);
     if (isFirstVideoLoad.current) {
       isFirstVideoLoad.current = false;
-      prevActiveDaysRef.current = [...getActiveDaysFromVideos(videos)];
+      prevActiveDaysRef.current = [...days];
       return;
     }
-    const newActiveDays = getActiveDaysFromVideos(videos);
-    const newDots = newActiveDays.filter(d => !prevActiveDaysRef.current.includes(d));
+    const newDots = days.filter(d => !prevActiveDaysRef.current.includes(d));
     newDots.forEach(d => animateDot(d));
-    prevActiveDaysRef.current = [...newActiveDays];
-  }, [videos]);
+    prevActiveDaysRef.current = [...days];
+  }, [profile?.tried_at_values]);
 
   const handleSubmitted = useCallback((jobId: string, videoId: string, url: string) => {
     setPendingJobs(prev => [...prev, { jobId, videoId, url, failed: false }]);
@@ -308,11 +304,11 @@ export default function HomeScreen() {
   const recent = videos.slice(0, 4);
   const resurface = videos.filter(v => !v.tried).at(-1) ?? null;
 
-  const streak = profile?.current_streak ?? 0;
+  const streak = computeStreakLocal(profile?.tried_at_values ?? []);
   const tried = profile?.explorer_tried ?? 0;
   const total = profile?.explorer_total ?? 0;
   const pct = total > 0 ? Math.round((tried / total) * 100) : 0;
-  const activeDays = getActiveDaysFromVideos(videos);
+  const activeDays = getActiveDaysLocal(profile?.tried_at_values ?? []);
 
   if (loading) {
     return (
@@ -710,11 +706,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceHigh,
     borderRadius: radii.full,
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
     alignSelf: 'flex-start',
   },
   categoryText: {
-    ...typography.labelCaps,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    lineHeight: 12,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
     color: colors.onSurfaceVariant,
     fontFamily: 'HankenGrotesk_700Bold',
   },

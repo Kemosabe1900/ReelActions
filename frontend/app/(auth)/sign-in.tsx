@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, TextInput,
+  View, Text, StyleSheet, TextInput, ScrollView,
   TouchableOpacity, KeyboardAvoidingView, Platform,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import * as AppleAuthentication from 'expo-apple-authentication';
+import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
+import { GoogleG } from '@/components/GoogleG';
 import { useAuth } from '@/contexts/AuthContext';
 import { colors, typography, spacing, radii } from '@/constants/theme';
+
+const isExpoGo = Constants.appOwnership === 'expo';
 
 export default function SignInScreen() {
   const { signInWithEmail, signInWithApple, signInWithGoogle } = useAuth();
@@ -29,7 +33,14 @@ export default function SignInScreen() {
       await signInWithEmail(email.trim(), password);
       router.replace('/(tabs)');
     } catch (e: any) {
-      setError(e.message ?? 'Sign in failed.');
+      const msg: string = e.message ?? '';
+      if (msg.toLowerCase().includes('invalid login') || msg.toLowerCase().includes('invalid credentials')) {
+        setError('Incorrect email or password.');
+      } else if (msg.toLowerCase().includes('email not confirmed')) {
+        setError('Please confirm your email first.');
+      } else {
+        setError('Sign in failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -42,7 +53,8 @@ export default function SignInScreen() {
       router.replace('/(tabs)');
     } catch (e: any) {
       if (e.code === 'ERR_CANCELED') return;
-      setError(e.message ?? 'Apple sign in failed.');
+      if (isExpoGo) return;
+      setError('Apple sign-in failed. Please use email below.');
     }
   };
 
@@ -51,8 +63,9 @@ export default function SignInScreen() {
     try {
       await signInWithGoogle();
       router.replace('/(tabs)');
-    } catch (e: any) {
-      setError(e.message ?? 'Google sign in failed.');
+    } catch {
+      if (isExpoGo) return;
+      setError('Google sign-in failed. Please use email below.');
     }
   };
 
@@ -60,26 +73,30 @@ export default function SignInScreen() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={24} color={colors.onSurface} />
-          </TouchableOpacity>
+          {router.canGoBack() && (
+            <TouchableOpacity onPress={() => router.back()}>
+              <Ionicons name="chevron-back" size={24} color={colors.onSurface} />
+            </TouchableOpacity>
+          )}
         </View>
 
-        <View style={styles.content}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <Text style={styles.headline}>Welcome back.</Text>
 
           <View style={styles.oauthGroup}>
             {Platform.OS === 'ios' && (
-              <AppleAuthentication.AppleAuthenticationButton
-                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
-                cornerRadius={radii.full}
-                style={styles.appleButton}
-                onPress={handleApple}
-              />
+              <TouchableOpacity style={styles.appleButton} onPress={handleApple} activeOpacity={0.8}>
+                <Ionicons name="logo-apple" size={20} color="#000000" />
+                <Text style={styles.appleText}>Sign in with Apple</Text>
+              </TouchableOpacity>
             )}
             <TouchableOpacity style={styles.googleButton} onPress={handleGoogle} activeOpacity={0.8}>
-              <Text style={styles.googleText}>Continue with Google</Text>
+              <GoogleG size={20} />
+              <Text style={styles.googleText}>Sign in with Google</Text>
             </TouchableOpacity>
           </View>
 
@@ -126,9 +143,7 @@ export default function SignInScreen() {
           </View>
 
           {error && <Text style={styles.error}>{error}</Text>}
-        </View>
 
-        <View style={styles.footer}>
           <TouchableOpacity style={styles.cta} onPress={handleEmail} disabled={loading} activeOpacity={0.8}>
             {loading
               ? <ActivityIndicator color={colors.onPrimary} />
@@ -142,13 +157,13 @@ export default function SignInScreen() {
             <Text style={styles.link}>Privacy Policy</Text>
           </Text>
 
-          <TouchableOpacity onPress={() => router.push('/(auth)/sign-up')}>
+          <TouchableOpacity style={styles.switchRow} onPress={() => router.push('/(auth)/sign-up')}>
             <Text style={styles.switchText}>
               Don't have an account?{' '}
               <Text style={styles.switchLink}>Sign Up</Text>
             </Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     </KeyboardAvoidingView>
   );
@@ -163,10 +178,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.containerPadding,
     paddingTop: spacing.stackGap,
   },
-  content: {
-    flex: 1,
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: spacing.containerPadding,
     paddingTop: 32,
+    paddingBottom: 48,
     gap: spacing.stackGap,
   },
   headline: {
@@ -180,19 +196,31 @@ const styles = StyleSheet.create({
   },
   appleButton: {
     height: 52,
-    width: '100%',
+    backgroundColor: '#ffffff',
+    borderRadius: radii.full,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  appleText: {
+    color: '#000000',
+    fontFamily: 'HankenGrotesk_700Bold',
+    fontSize: 19,
   },
   googleButton: {
     height: 52,
     backgroundColor: '#ffffff',
     borderRadius: radii.full,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 10,
   },
   googleText: {
     color: '#000000',
-    fontFamily: 'HankenGrotesk_600SemiBold',
-    fontSize: 16,
+    fontFamily: 'HankenGrotesk_700Bold',
+    fontSize: 19,
   },
   dividerRow: {
     flexDirection: 'row',
@@ -240,12 +268,6 @@ const styles = StyleSheet.create({
     color: '#f87171',
     fontFamily: 'HankenGrotesk_400Regular',
   },
-  footer: {
-    paddingHorizontal: spacing.containerPadding,
-    paddingBottom: 40,
-    gap: 14,
-    alignItems: 'center',
-  },
   cta: {
     width: '100%',
     height: 52,
@@ -253,6 +275,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.full,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 4,
   },
   ctaText: {
     color: colors.onPrimary,
@@ -267,6 +290,10 @@ const styles = StyleSheet.create({
   },
   link: {
     color: colors.primary,
+  },
+  switchRow: {
+    alignItems: 'center',
+    marginTop: 'auto',
   },
   switchText: {
     ...typography.bodySm,

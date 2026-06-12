@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView,
+  View, Text, StyleSheet, ScrollView,
   TextInput, TouchableOpacity, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, typography, spacing, radii } from '@/constants/theme';
 
 type Message = { id: string; role: 'user' | 'assistant'; content: string; card?: ContentCard };
@@ -46,7 +47,7 @@ export default function AssistantScreen() {
     >
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.title}>Reel<Text style={styles.titleGreen}>Actions</Text></Text>
+          <Text style={styles.title}>Reel<Text style={styles.titleGreen}>Scout</Text></Text>
           <View style={styles.fireBadge}>
             <Text style={styles.fireText}>🔥 7</Text>
           </View>

@@ -48,7 +48,7 @@ def get_profile(user_id: str = Depends(get_current_user)):
     )
 
     if not profile_result.data:
-        db.table("profiles").insert({"id": user_id}).execute()
+        db.table("profiles").upsert({"id": user_id}, on_conflict="id").execute()
         profile_result = (
             db.table("profiles").select("*")
             .eq("id", user_id).limit(1).execute()

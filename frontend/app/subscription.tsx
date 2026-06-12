@@ -1,46 +1,64 @@
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
-import { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Image, Linking } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
-import { Button } from '@/components/Button';
+import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { usePurchases } from '@/contexts/PurchasesContext';
-import { colors, typography, spacing, radii } from '@/constants/theme';
+import { colors, spacing, radii } from '@/constants/theme';
+
+const IS_EXPO_GO = Constants.appOwnership === 'expo';
 
 const PLANS = [
   {
     id: 'annual',
-    label: 'Annual',
-    badge: 'Best Value',
-    price: '$7.49 / month',
-    sub: 'billed annually',
-    total: '$89.99 / year',
-    recommended: true,
+    label: 'Annual Plan',
+    weeklyPrice: '$1.73/week',
+    billingNote: 'Billed as $89.99/year',
+    badge: 'Save 42%',
   },
   {
     id: 'monthly',
-    label: 'Monthly',
-    badge: null,
-    price: '$12.99',
-    sub: 'per month',
-    total: null,
-    recommended: false,
+    label: 'Monthly Plan',
+    weeklyPrice: '$3.00/week',
+    billingNote: 'Billed as $12.99/month',
+    badge: 'Most Popular',
   },
-];
+  {
+    id: 'weekly',
+    label: 'Weekly Plan',
+    weeklyPrice: '$4.99/week',
+    billingNote: 'Billed as $4.99/week',
+    badge: null,
+  },
+] as const;
 
 export default function SubscriptionScreen() {
-  const { packages, purchase, restore } = usePurchases();
-  const [selectedId, setSelectedId] = useState<'annual' | 'monthly'>('annual');
+  const { isSubscribed, packages, purchase, restore } = usePurchases();
+  const [selectedId, setSelectedId] = useState<'annual' | 'monthly' | 'weekly'>('annual');
   const [purchasing, setPurchasing] = useState(false);
+
+  useEffect(() => {
+    if (isSubscribed) router.replace('/(tabs)');
+  }, [isSubscribed]);
+
+  const selectedPlan = PLANS.find(p => p.id === selectedId)!;
 
   const annualPkg = packages.find(p => p.packageType === 'ANNUAL');
   const monthlyPkg = packages.find(p => p.packageType === 'MONTHLY');
+  const weeklyPkg = packages.find(p => p.packageType === 'WEEKLY');
 
   async function handlePurchase() {
-    const pkg = selectedId === 'annual' ? annualPkg : monthlyPkg;
+    if (IS_EXPO_GO) {
+      router.replace('/(auth)/sign-up');
+      return;
+    }
+    const pkg = selectedId === 'annual' ? annualPkg : selectedId === 'monthly' ? monthlyPkg : weeklyPkg;
     if (!pkg) return;
     setPurchasing(true);
     try {
       await purchase(pkg);
-      router.back();
+      router.replace('/(auth)/sign-up');
     } catch (e: any) {
       if (!e.userCancelled) {
         Alert.alert('Purchase failed', e.message ?? 'Something went wrong.');
@@ -53,82 +71,100 @@ export default function SubscriptionScreen() {
   async function handleRestore() {
     try {
       await restore();
-      Alert.alert('Restored', 'Your purchase has been restored.');
-      router.back();
+      router.replace('/(tabs)');
     } catch {
-      Alert.alert('Restore failed', 'No previous purchase found.');
+      Alert.alert('No purchase found', 'We could not find an existing subscription for this account.');
     }
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Text style={styles.headerTitle}>ReelActions — Turn Saves Into Action</Text>
+      {/* Header */}
+      <View style={styles.topRow}>
+        <TouchableOpacity onPress={handleRestore} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Text style={styles.restoreText}>Restore</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/backup-offer')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Ionicons name="close" size={22} color="rgba(255,255,255,0.4)" />
+        </TouchableOpacity>
+      </View>
 
-        <View style={styles.heroImage}>
-          <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
-            <Text style={styles.closeText}>✕</Text>
-          </TouchableOpacity>
-          <Text style={styles.heroEmoji}>💪</Text>
-        </View>
-
-        <View style={styles.valueSection}>
-          <Text style={styles.headline}>Turn saves into action</Text>
-          <Text style={styles.body}>
-            Stop doomscrolling. Start achieving. Unlock the full suite of habit-building tools.
+      <View style={styles.content}>
+        {/* Hero */}
+        <View style={styles.heroSection}>
+          <Image
+            source={require('@/assets/logo-transparent.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <Text style={styles.headline}>
+            Turn saves into{'\n'}
+            <Text style={{ color: colors.primary }}>action.</Text>
+          </Text>
+          <Text style={styles.subhead}>
+            You share the videos. We handle the rest.
           </Text>
         </View>
 
-        <View style={styles.featuresRow}>
-          <View style={styles.featureItem}>
-            <Text style={styles.featureIcon}>📊</Text>
-            <Text style={styles.featureLabel}>Full Analytics</Text>
-          </View>
-          <View style={styles.featureItem}>
-            <Text style={styles.featureIcon}>🏆</Text>
-            <Text style={styles.featureLabel}>Milestones</Text>
-          </View>
-        </View>
-
-        <View style={styles.plansRow}>
-          {PLANS.map((plan) => (
-            <TouchableOpacity
-              key={plan.id}
-              style={[styles.planCard, selectedId === plan.id && styles.planCardActive]}
-              activeOpacity={0.8}
-              onPress={() => setSelectedId(plan.id as 'annual' | 'monthly')}
-            >
-              {plan.badge && (
-                <View style={styles.badgeChip}>
-                  <Text style={styles.badgeText}>{plan.badge}</Text>
+        {/* Plans */}
+        <View style={styles.plansSection}>
+          {PLANS.map((plan) => {
+            const active = selectedId === plan.id;
+            return (
+              <TouchableOpacity
+                key={plan.id}
+                style={[styles.planRow, active && styles.planRowActive]}
+                onPress={() => setSelectedId(plan.id as 'annual' | 'monthly' | 'weekly')}
+                activeOpacity={0.8}
+              >
+                <View style={styles.planLeft}>
+                  <Text style={[styles.planLabel, active && styles.planLabelActive]}>
+                    {plan.label}
+                  </Text>
+                  {plan.badge && (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>{plan.badge}</Text>
+                    </View>
+                  )}
                 </View>
-              )}
-              <Text style={styles.planLabel}>{plan.label}</Text>
-              <Text style={styles.planPrice}>{plan.price}</Text>
-              <Text style={styles.planSub}>{plan.sub}</Text>
-              {plan.total && <Text style={styles.planTotal}>{plan.total}</Text>}
-              <Text style={styles.cancelAny}>Cancel anytime</Text>
-            </TouchableOpacity>
-          ))}
+                <Text style={[styles.planPrice, active && styles.planPriceActive]}>
+                  {plan.weeklyPrice}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+          <Text style={styles.billingNote}>{selectedPlan.billingNote}</Text>
         </View>
 
-        <Button
-          label={purchasing ? 'Processing…' : 'Try Free for 7 Days'}
-          onPress={handlePurchase}
-          disabled={purchasing}
-        />
-        <Text style={styles.trialLegal}>
-          After 7 days, you will be charged $89.99 annually. No commitment, cancel anytime.
-        </Text>
-
-        <View style={styles.footerLinks}>
-          <TouchableOpacity><Text style={styles.footerLink}>Terms of Service</Text></TouchableOpacity>
-          <Text style={styles.footerSep}>|</Text>
-          <TouchableOpacity><Text style={styles.footerLink}>Privacy Policy</Text></TouchableOpacity>
-          <Text style={styles.footerSep}>|</Text>
-          <TouchableOpacity onPress={handleRestore}><Text style={styles.footerLink}>Restore Purchase</Text></TouchableOpacity>
+        {/* CTA */}
+        <View style={styles.ctaSection}>
+          <TouchableOpacity
+            style={[styles.cta, purchasing && { opacity: 0.6 }]}
+            onPress={handlePurchase}
+            disabled={purchasing}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.ctaText}>
+              {purchasing ? 'Processing…' : 'Start 14-day trial'}
+            </Text>
+          </TouchableOpacity>
+          <Text style={styles.trustLine}>Cancel anytime  ·  No charges for 14 days</Text>
+          <TouchableOpacity onPress={() => router.push('/(auth)/sign-in')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Text style={styles.signInLink}>Already have an account? Sign in</Text>
+          </TouchableOpacity>
         </View>
-      </ScrollView>
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <TouchableOpacity onPress={() => Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}>
+            <Text style={styles.footerLink}>Terms</Text>
+          </TouchableOpacity>
+          <Text style={styles.footerSep}>·</Text>
+          <TouchableOpacity onPress={() => Linking.openURL('https://getreelactions.com/privacy')}>
+            <Text style={styles.footerLink}>Privacy</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -138,163 +174,148 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  scroll: {
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: spacing.containerPadding,
-    paddingTop: spacing.stackGap,
-    paddingBottom: 40,
-    gap: spacing.stackGap,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
-  headerTitle: {
-    ...typography.labelCaps,
-    color: colors.primary,
-    fontFamily: 'HankenGrotesk_700Bold',
-    textAlign: 'center',
-  },
-  heroImage: {
-    height: 200,
-    backgroundColor: colors.surface,
-    borderRadius: radii.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    borderWidth: 1,
-    borderColor: colors.outlineVariant,
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 32,
-    height: 32,
-    backgroundColor: colors.surfaceHigh,
-    borderRadius: radii.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1,
-  },
-  closeText: {
+  restoreText: {
     fontSize: 14,
-    color: colors.onSurfaceVariant,
-    fontWeight: '700',
+    fontFamily: 'HankenGrotesk_400Regular',
+    color: 'rgba(255,255,255,0.4)',
   },
-  heroEmoji: {
-    fontSize: 72,
+  content: {
+    flex: 1,
+    paddingHorizontal: spacing.containerPadding,
+    justifyContent: 'space-between',
+    paddingBottom: 24,
   },
-  valueSection: {
-    gap: 8,
+  heroSection: {
+    alignItems: 'center',
+    gap: 12,
+    paddingTop: 16,
+  },
+  logo: {
+    width: 72,
+    height: 72,
   },
   headline: {
-    ...typography.displayLg,
-    color: colors.onSurface,
+    fontSize: 36,
     fontFamily: 'HankenGrotesk_800ExtraBold',
-  },
-  body: {
-    ...typography.bodyBase,
-    color: colors.onSurfaceVariant,
-    fontFamily: 'HankenGrotesk_400Regular',
-  },
-  featuresRow: {
-    flexDirection: 'row',
-    gap: spacing.stackGap,
-  },
-  featureItem: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    padding: spacing.cardInner,
-  },
-  featureIcon: {
-    fontSize: 22,
-  },
-  featureLabel: {
-    ...typography.bodyBase,
     color: colors.onSurface,
-    fontFamily: 'HankenGrotesk_600SemiBold',
+    textAlign: 'center',
+    lineHeight: 42,
   },
-  plansRow: {
+  subhead: {
+    fontSize: 14,
+    fontFamily: 'HankenGrotesk_400Regular',
+    color: 'rgba(255,255,255,0.45)',
+    textAlign: 'center',
+  },
+  plansSection: {
+    gap: 10,
+  },
+  planRow: {
     flexDirection: 'row',
-    gap: spacing.elementTight,
-  },
-  planCard: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: radii.xl,
-    padding: spacing.cardInner,
-    gap: 4,
-    borderWidth: 1,
-    borderColor: colors.outlineVariant,
+    justifyContent: 'space-between',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: radii.full,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: colors.surface,
   },
-  planCardActive: {
+  planRowActive: {
     borderColor: colors.primary,
-    backgroundColor: colors.surfaceHigh,
+    backgroundColor: `${colors.primary}12`,
   },
-  badgeChip: {
+  planLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  badge: {
     backgroundColor: colors.primary,
     borderRadius: radii.full,
     paddingHorizontal: 8,
     paddingVertical: 2,
-    marginBottom: 4,
   },
   badgeText: {
-    ...typography.labelCaps,
-    color: colors.onPrimary,
+    fontSize: 9,
+    letterSpacing: 1,
     fontFamily: 'HankenGrotesk_700Bold',
+    color: colors.onPrimary,
   },
   planLabel: {
-    ...typography.titleLg,
-    color: colors.onSurface,
+    fontSize: 15,
     fontFamily: 'HankenGrotesk_600SemiBold',
+    color: 'rgba(255,255,255,0.5)',
+  },
+  planLabelActive: {
+    color: colors.onSurface,
   },
   planPrice: {
-    ...typography.headlineMd,
-    color: colors.onSurface,
-    fontFamily: 'HankenGrotesk_700Bold',
-    textAlign: 'center',
-  },
-  planSub: {
-    ...typography.bodySm,
-    color: colors.onSurfaceVariant,
-    fontFamily: 'HankenGrotesk_400Regular',
-    textAlign: 'center',
-  },
-  planTotal: {
-    ...typography.bodySm,
-    color: colors.onSurface,
+    fontSize: 15,
     fontFamily: 'HankenGrotesk_600SemiBold',
-    textAlign: 'center',
+    color: 'rgba(255,255,255,0.5)',
   },
-  cancelAny: {
-    ...typography.bodySm,
-    color: colors.onSurfaceVariant,
+  planPriceActive: {
+    color: colors.onSurface,
+  },
+  billingNote: {
+    fontSize: 12,
     fontFamily: 'HankenGrotesk_400Regular',
+    color: 'rgba(255,255,255,0.3)',
     textAlign: 'center',
     marginTop: 2,
   },
-  trialLegal: {
-    ...typography.bodySm,
-    color: colors.onSurfaceVariant,
+  ctaSection: {
+    gap: 12,
+    alignItems: 'center',
+  },
+  cta: {
+    width: '100%',
+    height: 54,
+    backgroundColor: colors.primary,
+    borderRadius: radii.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ctaText: {
+    color: colors.onPrimary,
+    fontFamily: 'HankenGrotesk_700Bold',
+    fontSize: 16,
+  },
+  trustLine: {
+    fontSize: 12,
     fontFamily: 'HankenGrotesk_400Regular',
+    color: 'rgba(255,255,255,0.3)',
+  },
+  signInLink: {
+    marginTop: 14,
+    fontSize: 13,
+    fontFamily: 'HankenGrotesk_500Medium',
+    color: 'rgba(255,255,255,0.55)',
     textAlign: 'center',
   },
-  footerLinks: {
+  footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    flexWrap: 'wrap',
   },
   footerLink: {
-    ...typography.bodySm,
-    color: colors.onSurfaceVariant,
+    fontSize: 11,
     fontFamily: 'HankenGrotesk_400Regular',
+    color: 'rgba(255,255,255,0.25)',
     textDecorationLine: 'underline',
   },
   footerSep: {
-    ...typography.bodySm,
-    color: colors.outline,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.2)',
   },
 });

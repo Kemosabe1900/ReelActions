@@ -46,6 +46,7 @@ export type Video = {
 export type Profile = {
   id: string;
   current_streak: number;
+  tried_at_values: string[];
   longest_streak: number;
   explorer_score: number;
   explorer_tried: number;

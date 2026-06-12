@@ -63,7 +63,7 @@ def get_profile(user_id: str = Depends(get_current_user)):
     try:
         user_response = db.auth.admin.get_user_by_id(user_id)
         email = user_response.user.email if user_response.user else None
-    except Exception:
+    except BaseException:
         pass
 
     return {

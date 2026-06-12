@@ -1,6 +1,7 @@
 import glob
 import logging
 import os
+import shutil
 import tempfile
 
 logger = logging.getLogger(__name__)
@@ -13,6 +14,8 @@ def download_instagram_audio(url: str, job_id: str) -> tuple[str, str, str | Non
     except ImportError:
         raise RuntimeError("instaloader not installed")
 
+    from app.config import settings
+
     L = instaloader.Instaloader(
         download_pictures=False,
         download_video_thumbnails=False,
@@ -23,6 +26,15 @@ def download_instagram_audio(url: str, job_id: str) -> tuple[str, str, str | Non
         quiet=True,
     )
 
+    ig_user = getattr(settings, "instagram_username", "")
+    ig_pass = getattr(settings, "instagram_password", "")
+    if ig_user and ig_pass:
+        try:
+            L.login(ig_user, ig_pass)
+            logger.info("[instagram_scraper] logged in as %s", ig_user)
+        except Exception as e:
+            logger.warning("[instagram_scraper] login failed: %s", e)
+
     shortcode = None
     for pattern in ["/reel/", "/p/", "/tv/"]:
         if pattern in url:
@@ -32,6 +44,7 @@ def download_instagram_audio(url: str, job_id: str) -> tuple[str, str, str | Non
     if not shortcode:
         raise RuntimeError(f"Could not extract shortcode from URL: {url}")
 
+    tmp = tempfile.mkdtemp()
     try:
         post = instaloader.Post.from_shortcode(L.context, shortcode)
         caption = post.caption or ""
@@ -39,28 +52,21 @@ def download_instagram_audio(url: str, job_id: str) -> tuple[str, str, str | Non
         if not post.is_video:
             raise RuntimeError("Instagram post has no video")
 
-        tmp = tempfile.mkdtemp()
         L.download_post(post, target=tmp)
 
-        matches = glob.glob(os.path.join(tmp, "*.mp4"))
+        matches = glob.glob(os.path.join(tmp, "**/*.mp4"), recursive=True)
+        if not matches:
+            matches = glob.glob(os.path.join(tmp, "*.mp4"))
         if not matches:
             raise RuntimeError("No .mp4 found after instaloader download")
 
         raw_path = os.path.join(tempfile.gettempdir(), f"{job_id}_ig.mp4")
         os.rename(matches[0], raw_path)
 
-        for f in glob.glob(os.path.join(tmp, "*")):
-            try:
-                os.remove(f)
-            except OSError:
-                pass
-        try:
-            os.rmdir(tmp)
-        except OSError:
-            pass
-
         logger.info("[instagram_scraper] instaloader succeeded: %s", raw_path)
         return raw_path, caption, None
 
     except instaloader.exceptions.InstaloaderException as e:
         raise RuntimeError(f"instaloader failed: {e}")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)

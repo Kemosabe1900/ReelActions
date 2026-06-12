@@ -17,8 +17,7 @@ class Settings(BaseSettings):
     admin_secret: str = "changeme"
     sentry_dsn: str = ""
     revenuecat_webhook_secret: str = ""
-    instagram_username: str = ""
-    instagram_password: str = ""
+    apify_api_token: str = ""
 
 
 settings = Settings()

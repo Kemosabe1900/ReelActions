@@ -144,6 +144,16 @@ def download_audio(url: str, job_id: str) -> tuple[str, str, str | None]:
         from app.services.tiktok_scraper import download_tiktok_audio
         raw_path, caption, thumbnail_url = download_tiktok_audio(url, job_id)
         return _to_mp3(raw_path, job_id), caption, thumbnail_url
+
+    if "instagram.com" in url:
+        try:
+            return _download_via_ytdlp(url, job_id)
+        except RuntimeError as e:
+            logger.warning("[downloader] yt-dlp Instagram failed, trying instaloader: %s", e)
+            from app.services.instagram_scraper import download_instagram_audio
+            raw_path, caption, thumbnail_url = download_instagram_audio(url, job_id)
+            return _to_mp3(raw_path, job_id), caption, thumbnail_url
+
     return _download_via_ytdlp(url, job_id)
 
 

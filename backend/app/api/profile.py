@@ -86,3 +86,10 @@ def update_profile(body: ProfileUpdate, user_id: str = Depends(get_current_user)
     db = get_db()
     db.table("profiles").update({"display_name": body.display_name.strip()}).eq("id", user_id).execute()
     return {"ok": True}
+
+
+@router.delete("/account", status_code=204)
+def delete_account(user_id: str = Depends(get_current_user)):
+    db = get_db()
+    db.table("push_tokens").delete().eq("user_id", user_id).execute()
+    db.auth.admin.delete_user(user_id)

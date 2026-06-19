@@ -1,13 +1,14 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { Platform } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-auth-session';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { supabase } from '@/lib/supabase';
 import { DEV_MODE } from '@/constants/config';
 
-WebBrowser.maybeCompleteAuthSession();
+GoogleSignin.configure({
+  webClientId: '717091202273-0efdabhcget79dqv8tsecjiobb2cav90.apps.googleusercontent.com',
+  iosClientId: '717091202273-on70ho1hd33imehrkq8vaa2e3mh77gac.apps.googleusercontent.com',
+});
 
 type AuthContextValue = {
   session: Session | null;
@@ -66,25 +67,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
-    const redirectUri = makeRedirectUri({ scheme: 'reelactions', path: 'auth/callback' });
-
-    const { data, error } = await supabase.auth.signInWithOAuth({
+    await GoogleSignin.hasPlayServices();
+    const result = await GoogleSignin.signIn();
+    const idToken = result.data?.idToken;
+    if (!idToken) throw new Error('No Google ID token returned');
+    const { error } = await supabase.auth.signInWithIdToken({
       provider: 'google',
-      options: {
-        redirectTo: redirectUri,
-        skipBrowserRedirect: true,
-      },
+      token: idToken,
     });
-
     if (error) throw error;
-
-    if (data.url) {
-      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
-      if (result.type === 'success' && result.url) {
-        const { error: sessionError } = await supabase.auth.exchangeCodeForSession(result.url);
-        if (sessionError) throw sessionError;
-      }
-    }
   };
 
   const signOut = async () => {

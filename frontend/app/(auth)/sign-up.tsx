@@ -2,8 +2,11 @@ import { useState } from 'react';
 import {
   View, Text, StyleSheet, TextInput, ScrollView,
   TouchableOpacity, KeyboardAvoidingView, Platform,
-  ActivityIndicator,
+  ActivityIndicator, Linking,
 } from 'react-native';
+
+const TERMS_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+const PRIVACY_URL = 'https://getreelactions.com/privacy.html';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
@@ -150,8 +153,8 @@ export default function SignUpScreen() {
 
           <Text style={styles.terms}>
             By continuing you agree to our{' '}
-            <Text style={styles.link}>Terms</Text> and{' '}
-            <Text style={styles.link}>Privacy Policy</Text>
+            <Text style={styles.link} onPress={() => Linking.openURL(TERMS_URL)}>Terms</Text> and{' '}
+            <Text style={styles.link} onPress={() => Linking.openURL(PRIVACY_URL)}>Privacy Policy</Text>
           </Text>
 
           <TouchableOpacity style={styles.switchRow} onPress={() => router.push('/sign-in')}>

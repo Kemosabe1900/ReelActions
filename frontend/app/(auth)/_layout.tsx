@@ -9,6 +9,9 @@ export default function AuthLayout() {
         contentStyle: { backgroundColor: colors.background },
         animation: 'slide_from_right',
       }}
-    />
+    >
+      <Stack.Screen name="sign-in" />
+      <Stack.Screen name="sign-up" />
+    </Stack>
   );
 }

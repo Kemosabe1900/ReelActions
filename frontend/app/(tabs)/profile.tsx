@@ -65,9 +65,27 @@ export default function ProfileScreen() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign out', style: 'destructive', onPress: async () => {
         await signOut();
-        router.replace('/(auth)/sign-in');
       } },
     ]);
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete account',
+      'This permanently deletes your account and all your saved videos, chats, and data. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: async () => {
+          try {
+            await api.profile.deleteAccount();
+          } catch {
+            Alert.alert('Could not delete account', 'Something went wrong. Please try again.');
+            return;
+          }
+          await signOut();
+        } },
+      ],
+    );
   };
 
   if (loading) {
@@ -239,6 +257,9 @@ export default function ProfileScreen() {
           <TouchableOpacity style={styles.signOutRow} activeOpacity={0.7} onPress={handleSignOut}>
             <Ionicons name="log-out-outline" size={18} color={colors.error} />
             <Text style={styles.signOutLabel}>Sign Out</Text>
+          </TouchableOpacity>
+          <TouchableOpacity activeOpacity={0.7} onPress={handleDeleteAccount} style={styles.deleteAccountRow}>
+            <Text style={styles.deleteAccountLabel}>Delete Account</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -470,5 +491,15 @@ const styles = StyleSheet.create({
     ...typography.bodyBase,
     color: colors.error,
     fontFamily: 'HankenGrotesk_400Regular',
+  },
+  deleteAccountRow: {
+    alignItems: 'center',
+    paddingVertical: 14,
+  },
+  deleteAccountLabel: {
+    ...typography.bodySm,
+    color: colors.onSurfaceVariant,
+    fontFamily: 'HankenGrotesk_400Regular',
+    textDecorationLine: 'underline',
   },
 });

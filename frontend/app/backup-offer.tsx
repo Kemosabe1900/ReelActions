@@ -4,6 +4,9 @@ import { router } from 'expo-router';
 import { usePurchases } from '@/contexts/PurchasesContext';
 import { spacing, radii } from '@/constants/theme';
 import { useState, useRef, useEffect } from 'react';
+import Constants from 'expo-constants';
+
+const IS_EXPO_GO = Constants.appOwnership === 'expo';
 
 const YELLOW = '#f5c842';
 const SHEET_BG = '#1c1a12';
@@ -26,11 +29,11 @@ export default function BackupOfferScreen() {
   }, []);
 
   async function handleClaim() {
+    if (IS_EXPO_GO) return;
     if (!monthlyPkg) return;
     setPurchasing(true);
     try {
       await purchase(monthlyPkg);
-      router.replace('/(auth)/sign-up');
     } catch (e: any) {
       if (!e.userCancelled) {
         Alert.alert('Purchase failed', e.message ?? 'Something went wrong.');
@@ -97,7 +100,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.65)',
+    backgroundColor: 'rgba(0,0,0,0.35)',
   },
   sheet: {
     backgroundColor: SHEET_BG,

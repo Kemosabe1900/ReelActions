@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors, typography, spacing, radii } from '@/constants/theme';
 import { getCategoryColor } from '@/constants/categories';
 import { api, Video } from '@/services/api';
+import { useData } from '@/contexts/DataContext';
 import { ChangeCategorySheet } from '@/components/ChangeCategorySheet';
 
 function ContextMenu({
@@ -116,49 +117,32 @@ export default function CategoryScreen() {
   const { name } = useLocalSearchParams<{ name: string }>();
   const categoryName = decodeURIComponent(name ?? '');
 
-  const [videos, setVideos] = useState<Video[]>([]);
-  const [allCategories, setAllCategories] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const { videos: allVideos, loading, error, refresh } = useData();
+  const videos = useMemo(() => allVideos.filter(v => v.category === categoryName), [allVideos, categoryName]);
+  const allCategories = useMemo(() => [...new Set(allVideos.map(v => v.category).filter(Boolean) as string[])], [allVideos]);
+
   const [contextVideo, setContextVideo] = useState<Video | null>(null);
   const [changeCategoryVideo, setChangeCategoryVideo] = useState<Video | null>(null);
   const [renameVideo, setRenameVideo] = useState<Video | null>(null);
   const [renameText, setRenameText] = useState('');
 
-  const load = useCallback(async () => {
-    try {
-      const [v, all] = await Promise.all([
-        api.videos.list({ category: categoryName }),
-        api.videos.list(),
-      ]);
-      setVideos(v);
-      setAllCategories([...new Set(all.map(v => v.category).filter(Boolean) as string[])]);
-      setError(false);
-    } catch (e) {
-      console.error('Category load error:', e);
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [categoryName]);
-
-  useEffect(() => { load(); }, [load]);
+  const load = refresh;
 
   const handleToggleTried = async (id: string) => {
     try {
-      const updated = await api.videos.toggleTried(id);
-      setVideos(prev => prev.map(v => v.id === id ? updated : v));
+      await api.videos.toggleTried(id);
+      refresh();
     } catch (e) {
       console.error('Toggle tried error:', e);
     }
   };
 
   const handleDelete = async (id: string) => {
-    setVideos(prev => prev.filter(v => v.id !== id));
     try {
       await api.videos.delete(id);
+      refresh();
     } catch {
-      load();
+      refresh();
     }
   };
 
@@ -167,11 +151,11 @@ export default function CategoryScreen() {
     const id = renameVideo.id;
     const newTitle = renameText.trim();
     setRenameVideo(null);
-    setVideos(prev => prev.map(v => v.id === id ? { ...v, title: newTitle } : v));
     try {
       await api.videos.rename(id, newTitle);
+      refresh();
     } catch {
-      load();
+      refresh();
     }
   };
 
@@ -310,7 +294,7 @@ export default function CategoryScreen() {
           existingCategories={allCategories}
           onClose={() => setChangeCategoryVideo(null)}
           onUpdated={() => {
-            setVideos(prev => prev.filter(v => v.id !== changeCategoryVideo.id));
+            refresh();
             setChangeCategoryVideo(null);
           }}
         />

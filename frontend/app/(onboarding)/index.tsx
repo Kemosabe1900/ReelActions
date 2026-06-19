@@ -5,12 +5,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path, Circle, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { GlassPillThumb } from '@/components/GlassPillThumb';
 import { colors, spacing, radii } from '@/constants/theme';
 import { usePostHog } from 'posthog-react-native';
+import { useAppState } from '@/contexts/AppStateContext';
 
 const TOTAL = 20;
 const SOFT_RED = '#c97a6a';
@@ -310,12 +310,15 @@ const STEP_NAMES: Record<number, string> = {
 
 export default function OnboardingScreen() {
   const posthog = usePostHog();
+  const { markOnboardingComplete } = useAppState();
   const [step, setStep] = useState(0);
   const [q1Pick, setQ1Pick] = useState<number | null>(null);
   const [q2Pick, setQ2Pick] = useState<number | null>(null);
   const [categories, setCategories] = useState<Set<number>>(new Set());
   const [q17Pick, setQ17Pick] = useState<number>(0);
+  const [q17Touched, setQ17Touched] = useState(false);
   const [vpw, setVpw] = useState(15);
+  const [vpwTouched, setVpwTouched] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -332,8 +335,7 @@ export default function OnboardingScreen() {
   const next = () => goTo(step + 1);
 
   const finish = async () => {
-    await AsyncStorage.setItem('onboarding_complete', 'true');
-    router.replace('/(auth)/sign-up');
+    await markOnboardingComplete();
   };
 
   const toggleCategory = (i: number) => {
@@ -368,6 +370,9 @@ export default function OnboardingScreen() {
             <View style={{ gap: 16 }}>
               <Text style={st.introSupporting}>Sorted. Searchable. Actually useful.</Text>
               <PrimaryBtn label="Get Started" onPress={next} />
+              <TouchableOpacity onPress={() => router.push('/(auth)/sign-in')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                <Text style={st.introSignIn}>Already have an account? <Text style={{ color: colors.primary, fontFamily: 'HankenGrotesk_700Bold' }}>Sign in</Text></Text>
+              </TouchableOpacity>
             </View>
           </View>
         );
@@ -485,7 +490,7 @@ export default function OnboardingScreen() {
               See what you've been{' '}
               <Text style={[st.headline, { color: colors.primary }]}>missing.</Text>
             </Text>
-            <VPWSlider value={vpw} onChange={setVpw} />
+            <VPWSlider value={vpw} onChange={(v) => { setVpw(v); setVpwTouched(true); }} />
             <View style={st.liveBox}>
               <Text style={st.liveNum}>{totalSaved}</Text>
               <Text style={st.liveLabel}>videos saved this year</Text>
@@ -502,7 +507,7 @@ export default function OnboardingScreen() {
               </View>
             </View>
             </View>
-            <PrimaryBtn label="That's a lot to lose" onPress={next} />
+            <PrimaryBtn label="That's a lot to lose" onPress={next} disabled={!vpwTouched} />
           </View>
         );
       }
@@ -1052,7 +1057,7 @@ export default function OnboardingScreen() {
                 We want to help you shift from passive consumption to active habit building.
               </Text>
             </View>
-            <PercentSlider value={q17Pick} onChange={setQ17Pick} />
+            <PercentSlider value={q17Pick} onChange={(v) => { setQ17Pick(v); setQ17Touched(true); }} />
             <View style={st.infoCard}>
               <Text style={st.infoCardTitle}>Execution Ratio</Text>
               <View style={st.infoRow}>
@@ -1064,7 +1069,7 @@ export default function OnboardingScreen() {
               </View>
             </View>
             </View>
-            <PrimaryBtn label="Continue" onPress={next} />
+            <PrimaryBtn label="Continue" onPress={next} disabled={!q17Touched} />
           </View>
         );
 
@@ -1088,7 +1093,7 @@ export default function OnboardingScreen() {
               </Text>
             </Text>
             </View>
-            <PrimaryBtn label="I'm ready" onPress={async () => { await AsyncStorage.setItem('onboarding_complete', 'true'); router.replace('/subscription'); }} />
+            <PrimaryBtn label="I'm ready" onPress={finish} />
           </View>
         );
 
@@ -1873,6 +1878,12 @@ const st = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'HankenGrotesk_400Regular',
     color: 'rgba(255,255,255,0.25)',
+    textAlign: 'center',
+  },
+  introSignIn: {
+    fontSize: 13,
+    fontFamily: 'HankenGrotesk_500Medium',
+    color: 'rgba(255,255,255,0.55)',
     textAlign: 'center',
   },
 

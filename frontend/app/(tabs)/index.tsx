@@ -12,8 +12,6 @@ import { SaveVideoSheet } from '@/components/SaveVideoSheet';
 import { ChangeCategorySheet } from '@/components/ChangeCategorySheet';
 import { computeStreakLocal, getActiveDaysLocal } from '@/lib/streak';
 
-type PendingJob = { jobId: string; videoId: string; url: string; failed: boolean };
-
 function SaveItem({ save, onPress, onLongPress }: { save: Video; onPress: () => void; onLongPress: () => void }) {
   return (
     <TouchableHighlight onPress={onPress} onLongPress={onLongPress} delayLongPress={150} underlayColor="#1e1e1e" activeOpacity={1} style={styles.saveItem}>
@@ -171,23 +169,17 @@ function SourceIcon({ url }: { url: string }) {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { videos, profile, loading, error, refresh } = useData();
+  const { videos, profile, loading, error, refresh, pendingJobs, addPendingJob, removePendingJob } = useData();
   const [showSave, setShowSave] = useState(false);
-  const [pendingJobs, setPendingJobs] = useState<PendingJob[]>([]);
   const [contextVideo, setContextVideo] = useState<Video | null>(null);
   const [renameVideo, setRenameVideo] = useState<Video | null>(null);
   const [renameText, setRenameText] = useState('');
   const [changeCategoryVideo, setChangeCategoryVideo] = useState<Video | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevActiveDaysRef = useRef<number[]>([]);
   const isFirstVideoLoad = useRef(true);
   const dotAnimations = useRef(DAYS.map(() => new Animated.Value(1))).current;
   const celebrateOpacity = useRef(new Animated.Value(0)).current;
   const celebrateTranslateY = useRef(new Animated.Value(10)).current;
-
-  useEffect(() => {
-    setPendingJobs(prev => prev.filter(job => !videos.some(v => v.id === job.videoId)));
-  }, [videos]);
 
   const animateDot = useCallback((dayIndex: number) => {
     const anim = dotAnimations[dayIndex];
@@ -213,28 +205,6 @@ export default function HomeScreen() {
   }, [refresh]));
 
   useEffect(() => {
-    const active = pendingJobs.filter(j => !j.failed);
-    if (active.length === 0) {
-      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-      return;
-    }
-    pollRef.current = setInterval(async () => {
-      for (const job of active) {
-        try {
-          const status = await api.jobs.get(job.jobId);
-          if (status.status === 'completed') {
-            setPendingJobs(prev => prev.filter(j => j.jobId !== job.jobId));
-            refresh();
-          } else if (status.status === 'failed') {
-            setPendingJobs(prev => prev.map(j => j.jobId === job.jobId ? { ...j, failed: true } : j));
-          }
-        } catch {}
-      }
-    }, 3000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [pendingJobs, refresh]);
-
-  useEffect(() => {
     const days = getActiveDaysLocal(profile?.tried_at_values ?? []);
     if (isFirstVideoLoad.current) {
       isFirstVideoLoad.current = false;
@@ -247,8 +217,8 @@ export default function HomeScreen() {
   }, [profile?.tried_at_values]);
 
   const handleSubmitted = useCallback((jobId: string, videoId: string, url: string) => {
-    setPendingJobs(prev => [...prev, { jobId, videoId, url, failed: false }]);
-  }, []);
+    addPendingJob(jobId, videoId, url);
+  }, [addPendingJob]);
 
   const handleDelete = async (id: string) => {
     try {
@@ -410,7 +380,7 @@ export default function HomeScreen() {
                       </Text>
                     </View>
                     {job.failed && (
-                      <TouchableOpacity hitSlop={12} onPress={() => setPendingJobs(prev => prev.filter(j => j.jobId !== job.jobId))}>
+                      <TouchableOpacity hitSlop={12} onPress={() => removePendingJob(job.jobId)}>
                         <Ionicons name="close" size={20} color={colors.onSurfaceVariant} />
                       </TouchableOpacity>
                     )}

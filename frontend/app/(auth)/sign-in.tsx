@@ -16,6 +16,7 @@ const isExpoGo = Constants.appOwnership === 'expo';
 
 export default function SignInScreen() {
   const { signInWithEmail, signInWithApple, signInWithGoogle } = useAuth();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -31,7 +32,6 @@ export default function SignInScreen() {
     setLoading(true);
     try {
       await signInWithEmail(email.trim(), password);
-      router.replace('/(tabs)');
     } catch (e: any) {
       const msg: string = e.message ?? '';
       if (msg.toLowerCase().includes('invalid login') || msg.toLowerCase().includes('invalid credentials')) {
@@ -50,7 +50,6 @@ export default function SignInScreen() {
     setError(null);
     try {
       await signInWithApple();
-      router.replace('/(tabs)');
     } catch (e: any) {
       if (e.code === 'ERR_CANCELED') return;
       if (isExpoGo) return;
@@ -62,7 +61,6 @@ export default function SignInScreen() {
     setError(null);
     try {
       await signInWithGoogle();
-      router.replace('/(tabs)');
     } catch {
       if (isExpoGo) return;
       setError('Google sign-in failed. Please use email below.');
@@ -85,7 +83,7 @@ export default function SignInScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.headline}>Welcome back.</Text>
+          <Text style={styles.headline}>Sign in.</Text>
 
           <View style={styles.oauthGroup}>
             {Platform.OS === 'ios' && (
@@ -157,12 +155,6 @@ export default function SignInScreen() {
             <Text style={styles.link}>Privacy Policy</Text>
           </Text>
 
-          <TouchableOpacity style={styles.switchRow} onPress={() => router.push('/(auth)/sign-up')}>
-            <Text style={styles.switchText}>
-              Don't have an account?{' '}
-              <Text style={styles.switchLink}>Sign Up</Text>
-            </Text>
-          </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
     </KeyboardAvoidingView>
@@ -259,6 +251,7 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
     fontFamily: 'HankenGrotesk_400Regular',
     fontSize: 16,
+    paddingVertical: 0,
   },
   eyeButton: {
     padding: 4,

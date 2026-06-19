@@ -125,6 +125,8 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ display_name }),
       }),
+    deleteAccount: () =>
+      request<void>('/account', { method: 'DELETE' }),
   },
 
   chat: {

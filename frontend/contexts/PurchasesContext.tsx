@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import Purchases, { CustomerInfo, PurchasesPackage } from 'react-native-purchases';
@@ -6,7 +6,6 @@ import * as Sentry from '@sentry/react-native';
 import { REVENUECAT_API_KEY_IOS, REVENUECAT_API_KEY_ANDROID, DEV_MODE } from '@/constants/config';
 import { api } from '@/services/api';
 
-// Native store unavailable in Expo Go — skip RC entirely
 const IS_EXPO_GO = Constants.appOwnership === 'expo';
 
 type PurchasesContextValue = {
@@ -14,7 +13,7 @@ type PurchasesContextValue = {
   packages: PurchasesPackage[];
   loading: boolean;
   purchase: (pkg: PurchasesPackage) => Promise<void>;
-  restore: () => Promise<void>;
+  restore: () => Promise<boolean>;
 };
 
 const PurchasesContext = createContext<PurchasesContextValue | null>(null);
@@ -23,26 +22,40 @@ export function PurchasesProvider({ children, userId }: { children: ReactNode; u
   const [isSubscribed, setIsSubscribed] = useState(DEV_MODE);
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
   const [loading, setLoading] = useState(true);
+  const configured = useRef(false);
+  const lastUserId = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    if (DEV_MODE || IS_EXPO_GO) { setLoading(false); return; }
+    (async () => {
+      if (DEV_MODE || IS_EXPO_GO) { setLoading(false); return; }
 
-    const apiKey = Platform.OS === 'ios' ? REVENUECAT_API_KEY_IOS : REVENUECAT_API_KEY_ANDROID;
-    if (!apiKey) { setLoading(false); return; }
+      if (!configured.current) {
+        const apiKey = Platform.OS === 'ios' ? REVENUECAT_API_KEY_IOS : REVENUECAT_API_KEY_ANDROID;
+        if (!apiKey) { setLoading(false); return; }
+        try {
+          Purchases.configure({ apiKey });
+          configured.current = true;
+        } catch {
+          setLoading(false);
+          return;
+        }
+      }
 
-    try {
-      Purchases.configure({ apiKey });
-    } catch {
-      setLoading(false);
-      return;
-    }
+      if (userId !== lastUserId.current) {
+        if (userId) {
+          try { await Purchases.logIn(userId); } catch {}
+        } else if (lastUserId.current) {
+          try { await Purchases.logOut(); } catch {}
+          setIsSubscribed(false);
+        }
+        lastUserId.current = userId;
+      }
 
-    if (userId) {
-      Purchases.logIn(userId).catch(() => {});
-    }
-
-    loadOfferings();
-    checkSubscription();
+      // Offerings (paywall packages) aren't needed to start the app — load in
+      // the background so the splash isn't gated on a network round-trip.
+      loadOfferings();
+      await checkSubscription();
+    })();
   }, [userId]);
 
   async function loadOfferings() {
@@ -87,9 +100,11 @@ export function PurchasesProvider({ children, userId }: { children: ReactNode; u
     setIsSubscribed(isActive(customerInfo));
   }
 
-  async function restore() {
+  async function restore(): Promise<boolean> {
     const info = await Purchases.restorePurchases();
-    setIsSubscribed(isActive(info));
+    const active = isActive(info);
+    setIsSubscribed(active);
+    return active;
   }
 
   return (

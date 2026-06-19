@@ -1,8 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Image, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { usePurchases } from '@/contexts/PurchasesContext';
 import { colors, spacing, radii } from '@/constants/theme';
@@ -13,52 +12,42 @@ const PLANS = [
   {
     id: 'annual',
     label: 'Annual Plan',
-    weeklyPrice: '$1.73/week',
-    billingNote: 'Billed as $89.99/year',
+    billedAmount: '$89.99/yr',
+    weeklyEquiv: '$1.73/wk',
     badge: 'Save 42%',
   },
   {
     id: 'monthly',
     label: 'Monthly Plan',
-    weeklyPrice: '$3.00/week',
-    billingNote: 'Billed as $12.99/month',
+    billedAmount: '$12.99/mo',
+    weeklyEquiv: '$3.00/wk',
     badge: 'Most Popular',
   },
   {
     id: 'weekly',
     label: 'Weekly Plan',
-    weeklyPrice: '$4.99/week',
-    billingNote: 'Billed as $4.99/week',
+    billedAmount: '$4.99/wk',
+    weeklyEquiv: null,
     badge: null,
   },
 ] as const;
 
 export default function SubscriptionScreen() {
-  const { isSubscribed, packages, purchase, restore } = usePurchases();
+  const { packages, purchase, restore } = usePurchases();
   const [selectedId, setSelectedId] = useState<'annual' | 'monthly' | 'weekly'>('annual');
   const [purchasing, setPurchasing] = useState(false);
-
-  useEffect(() => {
-    if (isSubscribed) router.replace('/(tabs)');
-  }, [isSubscribed]);
-
-  const selectedPlan = PLANS.find(p => p.id === selectedId)!;
 
   const annualPkg = packages.find(p => p.packageType === 'ANNUAL');
   const monthlyPkg = packages.find(p => p.packageType === 'MONTHLY');
   const weeklyPkg = packages.find(p => p.packageType === 'WEEKLY');
 
   async function handlePurchase() {
-    if (IS_EXPO_GO) {
-      router.replace('/(auth)/sign-up');
-      return;
-    }
+    if (IS_EXPO_GO) return;
     const pkg = selectedId === 'annual' ? annualPkg : selectedId === 'monthly' ? monthlyPkg : weeklyPkg;
     if (!pkg) return;
     setPurchasing(true);
     try {
       await purchase(pkg);
-      router.replace('/(auth)/sign-up');
     } catch (e: any) {
       if (!e.userCancelled) {
         Alert.alert('Purchase failed', 'Something went wrong. Please try again.');
@@ -70,8 +59,10 @@ export default function SubscriptionScreen() {
 
   async function handleRestore() {
     try {
-      await restore();
-      router.replace('/(tabs)');
+      const active = await restore();
+      if (!active) {
+        Alert.alert('No purchase found', 'We could not find an existing subscription for this account.');
+      }
     } catch {
       Alert.alert('No purchase found', 'We could not find an existing subscription for this account.');
     }
@@ -83,9 +74,6 @@ export default function SubscriptionScreen() {
       <View style={styles.topRow}>
         <TouchableOpacity onPress={handleRestore} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Text style={styles.restoreText}>Restore</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push('/backup-offer')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <Ionicons name="close" size={22} color="rgba(255,255,255,0.4)" />
         </TouchableOpacity>
       </View>
 
@@ -127,13 +115,17 @@ export default function SubscriptionScreen() {
                     </View>
                   )}
                 </View>
-                <Text style={[styles.planPrice, active && styles.planPriceActive]}>
-                  {plan.weeklyPrice}
-                </Text>
+                <View style={styles.planPriceCol}>
+                  <Text style={[styles.planBilledAmount, active && styles.planBilledAmountActive]}>
+                    {plan.billedAmount}
+                  </Text>
+                  {plan.weeklyEquiv && (
+                    <Text style={styles.planWeeklyEquiv}>{plan.weeklyEquiv}</Text>
+                  )}
+                </View>
               </TouchableOpacity>
             );
           })}
-          <Text style={styles.billingNote}>{selectedPlan.billingNote}</Text>
         </View>
 
         {/* CTA */}
@@ -258,20 +250,22 @@ const styles = StyleSheet.create({
   planLabelActive: {
     color: colors.onSurface,
   },
-  planPrice: {
+  planPriceCol: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  planBilledAmount: {
     fontSize: 15,
-    fontFamily: 'HankenGrotesk_600SemiBold',
+    fontFamily: 'HankenGrotesk_700Bold',
     color: 'rgba(255,255,255,0.5)',
   },
-  planPriceActive: {
+  planBilledAmountActive: {
     color: colors.onSurface,
   },
-  billingNote: {
-    fontSize: 12,
+  planWeeklyEquiv: {
+    fontSize: 11,
     fontFamily: 'HankenGrotesk_400Regular',
     color: 'rgba(255,255,255,0.3)',
-    textAlign: 'center',
-    marginTop: 2,
   },
   ctaSection: {
     gap: 12,

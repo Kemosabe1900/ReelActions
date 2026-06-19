@@ -3,9 +3,11 @@ import {
   Modal, View, Text, TextInput, TouchableOpacity,
   StyleSheet, ActivityIndicator, Platform, Animated, Keyboard,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { colors, typography, radii, spacing } from '@/constants/theme';
 import { api } from '@/services/api';
+
+const KEYBOARD_OVERLAP = 24;
 
 type Props = {
   visible: boolean;
@@ -39,18 +41,20 @@ export function SaveVideoSheet({ visible, onClose, onSubmitted }: Props) {
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
       (e) => {
         Animated.timing(keyboardOffset, {
-          toValue: e.endCoordinates.height,
-          duration: Platform.OS === 'ios' ? e.duration : 250,
+          // Overlap the keyboard slightly so the sheet's background fills the
+          // gap under the keyboard's rounded top corners (no black wedges).
+          toValue: e.endCoordinates.height - KEYBOARD_OVERLAP,
+          duration: 160,
           useNativeDriver: false,
         }).start();
       },
     );
     const hide = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      (e) => {
+      () => {
         Animated.timing(keyboardOffset, {
           toValue: 0,
-          duration: Platform.OS === 'ios' ? e.duration : 250,
+          duration: 140,
           useNativeDriver: false,
         }).start();
       },
@@ -103,19 +107,27 @@ export function SaveVideoSheet({ visible, onClose, onSubmitted }: Props) {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.sub}>Paste a video link</Text>
-
-            <TextInput
-              style={styles.input}
-              value={url}
-              onChangeText={setUrl}
-              placeholder=""
-              placeholderTextColor={colors.outline}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-              editable={!submitting}
-            />
+            <View style={styles.inputRow}>
+              <Ionicons name="link-outline" size={18} color={colors.onSurfaceVariant} />
+              <TextInput
+                style={styles.input}
+                value={url}
+                onChangeText={setUrl}
+                placeholder="Paste a video link"
+                placeholderTextColor={colors.onSurfaceVariant}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                autoFocus
+                editable={!submitting}
+              />
+              {!url.length && (
+                <View style={styles.platformGlyphs}>
+                  <Ionicons name="logo-tiktok" size={16} color={colors.outline} />
+                  <FontAwesome5 name="instagram" size={16} color={colors.outline} />
+                </View>
+              )}
+            </View>
 
             {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
 
@@ -144,20 +156,25 @@ const styles = StyleSheet.create({
   sheet: {
     backgroundColor: '#1a1a1a',
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    padding: spacing.cardInner, paddingBottom: 40, gap: 16,
+    paddingHorizontal: spacing.cardInner, paddingTop: 12,
+    paddingBottom: KEYBOARD_OVERLAP + 16, gap: 14,
     borderTopWidth: 1, borderColor: '#2e2e2e',
   },
-  handle: { width: 36, height: 4, backgroundColor: '#2e2e2e', borderRadius: 2, alignSelf: 'center', marginBottom: 4 },
+  handle: { width: 36, height: 4, backgroundColor: '#3a3a3a', borderRadius: 2, alignSelf: 'center', marginBottom: 12 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title: { ...typography.titleLg, color: colors.onSurface, fontFamily: 'HankenGrotesk_700Bold' },
-  sub: { ...typography.bodySm, color: colors.onSurfaceVariant, fontFamily: 'HankenGrotesk_400Regular', marginTop: -8 },
-  input: {
+  inputRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: colors.background, borderWidth: 1, borderColor: '#2e2e2e',
-    borderRadius: radii.lg, paddingHorizontal: 14, paddingVertical: 12,
-    color: colors.onSurface, fontFamily: 'HankenGrotesk_400Regular', fontSize: 14,
+    borderRadius: radii.lg, paddingHorizontal: 14, height: 52,
   },
-  saveBtn: { backgroundColor: colors.primary, borderRadius: radii.lg, paddingVertical: 14, alignItems: 'center' },
+  input: {
+    flex: 1, color: colors.onSurface,
+    fontFamily: 'HankenGrotesk_400Regular', fontSize: 15,
+  },
+  platformGlyphs: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  saveBtn: { backgroundColor: colors.primary, borderRadius: radii.lg, height: 52, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
   saveBtnDisabled: { opacity: 0.45 },
   saveBtnText: { ...typography.bodyBase, color: colors.background, fontFamily: 'HankenGrotesk_700Bold' },
-  errorText: { ...typography.bodySm, color: colors.error, fontFamily: 'HankenGrotesk_400Regular', marginTop: -8 },
+  errorText: { ...typography.bodySm, color: colors.error, fontFamily: 'HankenGrotesk_400Regular', marginTop: -6, marginLeft: 2 },
 });

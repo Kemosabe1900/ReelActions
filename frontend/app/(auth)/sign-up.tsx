@@ -31,7 +31,6 @@ export default function SignUpScreen() {
     setLoading(true);
     try {
       await signUpWithEmail(email.trim(), password);
-      router.replace('/(tabs)');
     } catch (e: any) {
       const msg: string = e.message ?? '';
       if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already exists')) {
@@ -50,7 +49,6 @@ export default function SignUpScreen() {
     setError(null);
     try {
       await signInWithApple();
-      router.replace('/(tabs)');
     } catch (e: any) {
       if (e.code === 'ERR_CANCELED') return;
       if (isExpoGo) return;
@@ -62,7 +60,6 @@ export default function SignUpScreen() {
     setError(null);
     try {
       await signInWithGoogle();
-      router.replace('/(tabs)');
     } catch {
       if (isExpoGo) return;
       setError('Google sign-in failed. Please use email below.');
@@ -157,7 +154,7 @@ export default function SignUpScreen() {
             <Text style={styles.link}>Privacy Policy</Text>
           </Text>
 
-          <TouchableOpacity style={styles.switchRow} onPress={() => router.push('/(auth)/sign-in')}>
+          <TouchableOpacity style={styles.switchRow} onPress={() => router.push('/sign-in')}>
             <Text style={styles.switchText}>
               Already have an account?{' '}
               <Text style={styles.switchLink}>Sign In</Text>
@@ -259,6 +256,7 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
     fontFamily: 'HankenGrotesk_400Regular',
     fontSize: 16,
+    paddingVertical: 0,
   },
   eyeButton: {
     padding: 4,

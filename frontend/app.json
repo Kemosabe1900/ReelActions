@@ -9,7 +9,7 @@
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/logo-transparent.png",
       "resizeMode": "contain",
       "backgroundColor": "#0e150e"
     },
@@ -64,7 +64,15 @@
       "expo-secure-store",
       "expo-web-browser",
       "expo-apple-authentication",
-      ["@sentry/react-native", {"organization": "nemsapps", "project": "reelactions-mobile"}]
+      [
+        "@sentry/react-native",
+        {
+          "organization": "nemsapps",
+          "project": "reelactions-mobile"
+        }
+      ],
+      "expo-font",
+      "expo-router"
     ]
   }
 }

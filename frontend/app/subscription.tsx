@@ -142,7 +142,7 @@ export default function SubscriptionScreen() {
           </TouchableOpacity>
           <Text style={styles.trustLine}>Cancel anytime  ·  No charges for 14 days</Text>
           <TouchableOpacity onPress={() => router.push('/(auth)/sign-in')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-            <Text style={styles.signInLink}>Already have an account? Sign in</Text>
+            <Text style={styles.signInLink}>Already have an account? <Text style={{ color: colors.primary, fontFamily: 'HankenGrotesk_700Bold' }}>Sign in</Text></Text>
           </TouchableOpacity>
         </View>
 

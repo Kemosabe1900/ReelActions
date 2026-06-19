@@ -53,7 +53,7 @@ export default function SignInScreen() {
     } catch (e: any) {
       if (e.code === 'ERR_CANCELED') return;
       if (isExpoGo) return;
-      setError('Apple sign-in failed. Please use email below.');
+      setError(e?.message ? `Apple: ${e.message}` : 'Apple sign-in failed. Please use email below.');
     }
   };
 
@@ -61,9 +61,9 @@ export default function SignInScreen() {
     setError(null);
     try {
       await signInWithGoogle();
-    } catch {
+    } catch (e: any) {
       if (isExpoGo) return;
-      setError('Google sign-in failed. Please use email below.');
+      setError(e?.message ? `Google: ${e.message}` : 'Google sign-in failed. Please use email below.');
     }
   };
 

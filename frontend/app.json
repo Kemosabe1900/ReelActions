@@ -8,11 +8,6 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/logo-transparent.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0e150e"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.nems.reelactions",
@@ -39,6 +34,15 @@
       }
     },
     "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/logo-transparent.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#000000"
+        }
+      ],
       [
         "expo-notifications",
         {

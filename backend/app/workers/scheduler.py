@@ -43,8 +43,8 @@ def run_streak_reminder():
         if not _tried_something_today(user_id):
             notify_user(
                 user_id,
-                title="Keep your streak alive!",
-                body="You haven't tried a save today. Open ReelActions and give one a go.",
+                title="Keep your streak alive",
+                body="Try a save today.",
             )
 
 
@@ -55,5 +55,5 @@ def run_weekly_recap():
             notify_user(
                 user_id,
                 title="Your week in ReelActions",
-                body=f"You saved {count} video{'s' if count != 1 else ''} this week. Keep building your library!",
+                body=f"{count} save{'s' if count != 1 else ''} this week. Nice work.",
             )

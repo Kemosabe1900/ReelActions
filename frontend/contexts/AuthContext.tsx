@@ -1,14 +1,26 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import Constants from 'expo-constants';
 import { Session } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { supabase } from '@/lib/supabase';
 import { DEV_MODE } from '@/constants/config';
 
-GoogleSignin.configure({
-  webClientId: '717091202273-0efdabhcget79dqv8tsecjiobb2cav90.apps.googleusercontent.com',
-  iosClientId: '717091202273-on70ho1hd33imehrkq8vaa2e3mh77gac.apps.googleusercontent.com',
-});
+const IS_EXPO_GO = Constants.appOwnership === 'expo';
+
+// GoogleSignin is a native module that isn't present in Expo Go, so load it
+// lazily and only configure it in a real build (otherwise Expo Go crashes).
+let googleConfigured = false;
+function getGoogleSignin() {
+  const { GoogleSignin } = require('@react-native-google-signin/google-signin');
+  if (!googleConfigured) {
+    GoogleSignin.configure({
+      webClientId: '717091202273-0efdabhcget79dqv8tsecjiobb2cav90.apps.googleusercontent.com',
+      iosClientId: '717091202273-on70ho1hd33imehrkq8vaa2e3mh77gac.apps.googleusercontent.com',
+    });
+    googleConfigured = true;
+  }
+  return GoogleSignin;
+}
 
 type AuthContextValue = {
   session: Session | null;
@@ -67,6 +79,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
+    if (IS_EXPO_GO) throw new Error('Google sign-in requires a native build');
+    const GoogleSignin = getGoogleSignin();
     await GoogleSignin.hasPlayServices();
     const result = await GoogleSignin.signIn();
     const idToken = result.data?.idToken;

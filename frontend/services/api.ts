@@ -127,6 +127,11 @@ export const api = {
       }),
     deleteAccount: () =>
       request<void>('/account', { method: 'DELETE' }),
+    setTimezone: (timezone: string) =>
+      request<{ ok: boolean }>('/profile/timezone', {
+        method: 'PATCH',
+        body: JSON.stringify({ timezone }),
+      }),
   },
 
   chat: {

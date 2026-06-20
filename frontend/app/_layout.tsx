@@ -37,6 +37,10 @@ function PushRegistrar() {
     if (uid && registeredFor.current !== uid) {
       registeredFor.current = uid;
       registerForPushNotifications();
+      try {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (tz) api.profile.setTimezone(tz).catch(() => {});
+      } catch {}
     }
   }, [session]);
 

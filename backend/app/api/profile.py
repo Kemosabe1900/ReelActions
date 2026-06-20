@@ -88,6 +88,17 @@ def update_profile(body: ProfileUpdate, user_id: str = Depends(get_current_user)
     return {"ok": True}
 
 
+class TimezoneUpdate(BaseModel):
+    timezone: str
+
+
+@router.patch("/profile/timezone")
+def update_timezone(body: TimezoneUpdate, user_id: str = Depends(get_current_user)):
+    db = get_db()
+    db.table("profiles").update({"timezone": body.timezone.strip()}).eq("id", user_id).execute()
+    return {"ok": True}
+
+
 @router.delete("/account", status_code=204)
 def delete_account(user_id: str = Depends(get_current_user)):
     db = get_db()

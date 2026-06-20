@@ -38,7 +38,7 @@ scheduler = BackgroundScheduler()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    scheduler.add_job(run_streak_reminder, CronTrigger(hour=19, minute=0))
+    scheduler.add_job(run_streak_reminder, CronTrigger(minute=0))
     scheduler.add_job(run_weekly_recap, CronTrigger(day_of_week="mon", hour=9, minute=0))
     scheduler.start()
     yield

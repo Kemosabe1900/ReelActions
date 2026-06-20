@@ -1,31 +1,74 @@
-from datetime import date
+import random
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+
 from app.database import get_db
 from app.services.push import notify_user
 
+# Users who haven't reported a timezone yet (old builds) default to US Eastern.
+DEFAULT_TZ = "America/New_York"
+REMINDER_LOCAL_HOUR = 18  # 6 PM local
 
-def _get_all_users_with_tokens() -> list[str]:
+
+def _users_with_tokens_and_tz() -> list[tuple[str, str]]:
     db = get_db()
-    result = db.table("push_tokens").select("user_id").execute()
-    return list({row["user_id"] for row in result.data})
+    token_rows = db.table("push_tokens").select("user_id").execute().data
+    user_ids = list({row["user_id"] for row in token_rows})
+    if not user_ids:
+        return []
+    profiles = (
+        db.table("profiles").select("id,timezone").in_("id", user_ids).execute().data
+    )
+    tz_by_id = {p["id"]: (p.get("timezone") or DEFAULT_TZ) for p in profiles}
+    return [(uid, tz_by_id.get(uid, DEFAULT_TZ)) for uid in user_ids]
 
 
-def _tried_something_today(user_id: str) -> bool:
+def _local_now(tz_name: str) -> datetime | None:
+    try:
+        return datetime.now(ZoneInfo(tz_name))
+    except Exception:
+        return None
+
+
+def _tried_today_local(user_id: str, now_local: datetime) -> bool:
+    midnight_utc = (
+        now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        .astimezone(timezone.utc)
+        .isoformat()
+    )
     db = get_db()
-    today = date.today().isoformat()
     result = (
         db.table("videos")
         .select("id")
         .eq("user_id", user_id)
         .eq("tried", True)
-        .gte("tried_at", f"{today}T00:00:00")
+        .gte("tried_at", midnight_utc)
         .limit(1)
         .execute()
     )
     return len(result.data) > 0
 
 
+def _streak_message(user_id: str) -> tuple[str, str]:
+    db = get_db()
+    rows = (
+        db.table("videos")
+        .select("title,tried")
+        .eq("user_id", user_id)
+        .is_("deleted_at", "null")
+        .execute()
+        .data
+    )
+    if not rows:
+        return ("Start your streak", "Add your first save to get going.")
+
+    untried = [r["title"] for r in rows if not r["tried"] and r.get("title")]
+    if untried:
+        return ("Keep your streak alive", f"Try {random.choice(untried)} today.")
+    return ("Keep your streak alive", "Try a save today.")
+
+
 def _saved_count_this_week(user_id: str) -> int:
-    from datetime import timedelta
     week_ago = (date.today() - timedelta(days=7)).isoformat()
     db = get_db()
     result = (
@@ -39,17 +82,20 @@ def _saved_count_this_week(user_id: str) -> int:
 
 
 def run_streak_reminder():
-    for user_id in _get_all_users_with_tokens():
-        if not _tried_something_today(user_id):
-            notify_user(
-                user_id,
-                title="Keep your streak alive",
-                body="Try a save today.",
-            )
+    """Runs hourly; notifies each user once at their local 6 PM if they
+    haven't tried a save yet today (in their own timezone)."""
+    for user_id, tz_name in _users_with_tokens_and_tz():
+        now_local = _local_now(tz_name)
+        if now_local is None or now_local.hour != REMINDER_LOCAL_HOUR:
+            continue
+        if _tried_today_local(user_id, now_local):
+            continue
+        title, body = _streak_message(user_id)
+        notify_user(user_id, title=title, body=body)
 
 
 def run_weekly_recap():
-    for user_id in _get_all_users_with_tokens():
+    for user_id, _ in _users_with_tokens_and_tz():
         count = _saved_count_this_week(user_id)
         if count > 0:
             notify_user(

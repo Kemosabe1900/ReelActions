@@ -28,6 +28,21 @@ if (SENTRY_DSN) {
 
 SplashScreen.preventAutoHideAsync();
 
+function PushRegistrar() {
+  const { session } = useAuth();
+  const registeredFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    const uid = session?.user?.id;
+    if (uid && registeredFor.current !== uid) {
+      registeredFor.current = uid;
+      registerForPushNotifications();
+    }
+  }, [session]);
+
+  return null;
+}
+
 function ShareIntentHandler() {
   const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
   const { addPendingJob } = useData();
@@ -102,12 +117,6 @@ export default function RootLayout() {
     HankenGrotesk_800ExtraBold,
   });
 
-  useEffect(() => {
-    if (fontsLoaded || fontError) {
-      registerForPushNotifications();
-    }
-  }, [fontsLoaded, fontError]);
-
   if (!fontsLoaded && !fontError) return null;
 
   return (
@@ -115,6 +124,7 @@ export default function RootLayout() {
       <AuthProvider>
         <AppProviders>
           <ShareIntentProvider>
+            <PushRegistrar />
             <ShareIntentHandler />
             <StateGuard />
             <StatusBar style="light" />

@@ -43,6 +43,10 @@ export function PurchasesProvider({ children, userId }: { children: ReactNode; u
 
       if (userId !== lastUserId.current) {
         if (userId) {
+          // Re-checking subscription for a newly signed-in user — keep the app
+          // in a loading state so the router doesn't flash the paywall with a
+          // stale (false) subscription status before RevenueCat responds.
+          setLoading(true);
           try { await Purchases.logIn(userId); } catch {}
         } else if (lastUserId.current) {
           try { await Purchases.logOut(); } catch {}

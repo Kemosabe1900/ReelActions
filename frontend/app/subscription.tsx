@@ -42,7 +42,7 @@ export default function SubscriptionScreen() {
   const weeklyPkg = packages.find(p => p.packageType === 'WEEKLY');
 
   async function handlePurchase() {
-    if (IS_EXPO_GO) return;
+    if (IS_EXPO_GO) { router.push('/(auth)/sign-up'); return; }
     const pkg = selectedId === 'annual' ? annualPkg : selectedId === 'monthly' ? monthlyPkg : weeklyPkg;
     if (!pkg) return;
     setPurchasing(true);
@@ -137,7 +137,7 @@ export default function SubscriptionScreen() {
             activeOpacity={0.85}
           >
             <Text style={styles.ctaText}>
-              {purchasing ? 'Processing…' : 'Start 14-day trial'}
+              {purchasing ? 'Processing…' : 'Start 14-day free trial'}
             </Text>
           </TouchableOpacity>
           <Text style={styles.trustLine}>Cancel anytime  ·  No charges for 14 days</Text>

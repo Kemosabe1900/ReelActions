@@ -6,6 +6,12 @@ from supabase import create_client, Client
 load_dotenv()
 
 
+@pytest.fixture(autouse=True)
+def _no_real_alerts(monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "discord_webhook_url", "", raising=False)
+
+
 @pytest.fixture(scope="session")
 def supabase() -> Client:
     url = os.environ["SUPABASE_URL"]

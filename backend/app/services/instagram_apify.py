@@ -6,7 +6,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-ACTOR_ID = "xMc5Ga1oCONPmWJIa"
+ACTOR_ID = "xMc5Ga1oCONPmWJIa"  # apify/instagram-reel-scraper
 APIFY_BASE = "https://api.apify.com/v2"
 
 
@@ -18,39 +18,32 @@ def download_instagram_audio(url: str, job_id: str) -> tuple[str, str, str | Non
         raise RuntimeError("APIFY_API_TOKEN not configured")
 
     headers = {"Authorization": f"Bearer {settings.apify_api_token}"}
+    run_input = {
+        "username": [url],
+        "resultsLimit": 1,
+        "includeDownloadedVideo": True,
+    }
 
     with httpx.Client(timeout=180) as client:
-        run_resp = client.post(
-            f"{APIFY_BASE}/actors/{ACTOR_ID}/runs",
-            json={"startUrls": [url]},
+        resp = client.post(
+            f"{APIFY_BASE}/acts/{ACTOR_ID}/run-sync-get-dataset-items",
+            json=run_input,
             headers=headers,
-            params={"waitSecs": 120},
+            params={"timeout": 120},
         )
-        run_resp.raise_for_status()
-        run = run_resp.json().get("data", {})
-
-        status = run.get("status")
-        dataset_id = run.get("defaultDatasetId")
-
-        if status not in ("SUCCEEDED", "FINISHED"):
-            raise RuntimeError(f"Apify run ended with status: {status}")
-        if not dataset_id:
-            raise RuntimeError("No dataset ID from Apify run")
-
-        items_resp = client.get(
-            f"{APIFY_BASE}/datasets/{dataset_id}/items",
-            headers=headers,
-        )
-        items_resp.raise_for_status()
-        items = items_resp.json()
+        if resp.status_code >= 400:
+            raise RuntimeError(
+                f"Apify run failed ({resp.status_code}): {resp.text[:500]}"
+            )
+        items = resp.json()
 
     if not items:
         raise RuntimeError("Apify returned no results for URL")
 
     post = items[0]
-    video_url = post.get("downloadedVideo")
+    video_url = post.get("downloadedVideo") or post.get("videoUrl")
     if not video_url:
-        raise RuntimeError("No downloadedVideo in Apify response")
+        raise RuntimeError("No video URL in Apify response")
 
     caption = post.get("caption") or ""
     thumbnail_url = post.get("displayUrl") or None

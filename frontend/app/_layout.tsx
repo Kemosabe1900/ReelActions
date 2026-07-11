@@ -34,7 +34,11 @@ function PushRegistrar() {
 
   useEffect(() => {
     const uid = session?.user?.id;
-    if (uid && registeredFor.current !== uid) {
+    if (!uid) {
+      registeredFor.current = null;
+      return;
+    }
+    if (registeredFor.current !== uid) {
       registeredFor.current = uid;
       registerForPushNotifications();
       try {

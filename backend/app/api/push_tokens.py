@@ -13,7 +13,14 @@ class PushTokenRequest(BaseModel):
 @router.post("/push-tokens", status_code=204)
 def register_push_token(body: PushTokenRequest, user_id: str = Depends(get_current_user)):
     db = get_db()
+    db.table("push_tokens").delete().eq("token", body.token).neq("user_id", user_id).execute()
     db.table("push_tokens").upsert(
         {"user_id": user_id, "token": body.token},
         on_conflict="user_id,token",
     ).execute()
+
+
+@router.delete("/push-tokens", status_code=204)
+def unregister_push_token(body: PushTokenRequest, user_id: str = Depends(get_current_user)):
+    db = get_db()
+    db.table("push_tokens").delete().eq("token", body.token).eq("user_id", user_id).execute()

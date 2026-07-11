@@ -196,5 +196,10 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ token }),
       }),
+    unregister: (token: string) =>
+      request<void>('/push-tokens', {
+        method: 'DELETE',
+        body: JSON.stringify({ token }),
+      }),
   },
 };

@@ -6,6 +6,8 @@ const isExpoGo =
   Constants.appOwnership === 'expo' ||
   (Constants as any).executionEnvironment === 'storeClient';
 
+let registeredToken: string | null = null;
+
 export async function registerForPushNotifications(): Promise<void> {
   if (isExpoGo) return;
 
@@ -46,7 +48,18 @@ export async function registerForPushNotifications(): Promise<void> {
 
     const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
     await api.pushTokens.register(token);
+    registeredToken = token;
   } catch {
     // non-fatal — app works without push
+  }
+}
+
+export async function unregisterPushToken(): Promise<void> {
+  if (!registeredToken) return;
+  try {
+    await api.pushTokens.unregister(registeredToken);
+    registeredToken = null;
+  } catch {
+    // non-fatal: backend register dedupe covers the next login
   }
 }

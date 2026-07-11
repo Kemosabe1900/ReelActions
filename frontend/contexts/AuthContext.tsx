@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import { Session } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { supabase } from '@/lib/supabase';
+import { unregisterPushToken } from '@/services/notifications';
 import { DEV_MODE } from '@/constants/config';
 
 const IS_EXPO_GO = Constants.appOwnership === 'expo';
@@ -93,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    await unregisterPushToken();
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   };

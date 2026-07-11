@@ -1,3 +1,4 @@
+import { AppState } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 
@@ -20,3 +21,15 @@ export const supabase = createClient(
     },
   }
 );
+
+// Supabase RN requires the token refresh timer to follow the app lifecycle.
+// Without this, a refresh interrupted mid-background rotates the token
+// server-side without persisting it locally, and the next launch presents a
+// stale refresh token that trips reuse detection and revokes the session.
+AppState.addEventListener('change', (state) => {
+  if (state === 'active') {
+    supabase.auth.startAutoRefresh();
+  } else {
+    supabase.auth.stopAutoRefresh();
+  }
+});

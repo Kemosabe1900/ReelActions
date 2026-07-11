@@ -24,18 +24,27 @@ def download_instagram_audio(url: str, job_id: str) -> tuple[str, str, str | Non
         "includeDownloadedVideo": True,
     }
 
-    with httpx.Client(timeout=180) as client:
-        resp = client.post(
-            f"{APIFY_BASE}/acts/{ACTOR_ID}/run-sync-get-dataset-items",
-            json=run_input,
-            headers=headers,
-            params={"timeout": 120},
-        )
-        if resp.status_code >= 400:
-            raise RuntimeError(
-                f"Apify run failed ({resp.status_code}): {resp.text[:500]}"
+    items = None
+    last_error = ""
+    with httpx.Client(timeout=300) as client:
+        for attempt in range(2):
+            resp = client.post(
+                f"{APIFY_BASE}/acts/{ACTOR_ID}/run-sync-get-dataset-items",
+                json=run_input,
+                headers=headers,
+                params={"timeout": 240},
             )
-        items = resp.json()
+            if resp.status_code < 400:
+                items = resp.json()
+                break
+            last_error = f"Apify run failed ({resp.status_code}): {resp.text[:500]}"
+            if "TIMED-OUT" in resp.text and attempt == 0:
+                logger.warning("[instagram_apify] run timed out, retrying once")
+                continue
+            raise RuntimeError(last_error)
+
+    if items is None:
+        raise RuntimeError(last_error)
 
     if not items:
         raise RuntimeError("Apify returned no results for URL")

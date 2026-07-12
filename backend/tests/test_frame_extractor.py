@@ -32,15 +32,21 @@ def test_find_vague_timestamps_deduplicates_nearby():
 
 def test_extract_frames_returns_empty_when_no_vague_refs():
     segments = [{"start": 0.0, "end": 1.0, "text": "Just mix everything together."}]
-    result = extract_frames_for_vision("https://tiktok.com/test", segments)
+    with patch("app.services.frame_extractor.os.path.exists", return_value=True):
+        result = extract_frames_for_vision("/tmp/video.mp4", segments)
     assert result == []
 
 
-def test_extract_frames_calls_download_and_ffmpeg_for_vague_refs():
+def test_extract_frames_returns_empty_without_video_file():
     segments = [{"start": 2.0, "end": 3.0, "text": "Use this tool right here."}]
-    with patch("app.services.frame_extractor._download_video_for_frames", return_value="/tmp/video.mp4") as mock_dl, \
+    assert extract_frames_for_vision(None, segments) == []
+    assert extract_frames_for_vision("/tmp/does-not-exist.mp4", segments) == []
+
+
+def test_extract_frames_calls_ffmpeg_for_vague_refs():
+    segments = [{"start": 2.0, "end": 3.0, "text": "Use this tool right here."}]
+    with patch("app.services.frame_extractor.os.path.exists", return_value=True), \
          patch("app.services.frame_extractor._extract_frame_at", return_value=b"\xff\xd8\xff") as mock_ff:
-        result = extract_frames_for_vision("https://tiktok.com/test", segments)
-        mock_dl.assert_called_once()
+        result = extract_frames_for_vision("/tmp/video.mp4", segments)
         mock_ff.assert_called_once()
         assert len(result) == 1

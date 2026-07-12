@@ -86,8 +86,12 @@ def _fetch_ytdlp_meta(url: str) -> tuple[str, str | None]:
     return "", None
 
 
+VIDEO_EXTS = {'.mp4', '.webm', '.mov', '.mkv'}
+
+
 def _to_mp3(raw_path: str, job_id: str) -> str:
-    """Convert any video/audio file to Whisper-compatible audio. Returns output path."""
+    """Convert any video/audio file to Whisper-compatible audio. Returns output path.
+    The raw file is kept — the processor reuses it for frame extraction and cleans it up."""
     tmp = tempfile.gettempdir()
     attempts = [
         (os.path.join(tmp, f"{job_id}_audio.mp3"), ["-vn", "-acodec", "libmp3lame", "-q:a", "5"]),
@@ -101,18 +105,17 @@ def _to_mp3(raw_path: str, job_id: str) -> str:
         )
         if conv.returncode == 0:
             logger.info("[downloader] ffmpeg -> %s", out_path)
-            try:
-                os.remove(raw_path)
-            except OSError:
-                pass
             return out_path
         logger.warning("[downloader] ffmpeg attempt failed (%s): %s", out_path, conv.stderr.strip()[-300:])
 
     raise RuntimeError(f"ffmpeg: all conversion attempts failed for {os.path.basename(raw_path)}")
 
 
-def _download_via_ytdlp(url: str, job_id: str) -> tuple[str, str, str | None]:
-    caption, thumbnail_url = _fetch_ytdlp_meta(url)
+def _video_path_or_none(raw_path: str) -> str | None:
+    return raw_path if Path(raw_path).suffix.lower() in VIDEO_EXTS else None
+
+
+def _download_via_ytdlp(url: str, job_id: str, timeout: int = 120) -> tuple[str, str, str | None, str | None]:
     tmp = tempfile.gettempdir()
     cmd = [
         "yt-dlp",
@@ -124,7 +127,7 @@ def _download_via_ytdlp(url: str, job_id: str) -> tuple[str, str, str | None]:
         "--output", os.path.join(tmp, f"{job_id}.%(ext)s"),
         url,
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     if result.returncode != 0:
         raise RuntimeError(f"yt-dlp failed: {result.stderr.strip()[:500]}")
     matches = glob.glob(os.path.join(tmp, f"{job_id}.*"))
@@ -135,24 +138,31 @@ def _download_via_ytdlp(url: str, job_id: str) -> tuple[str, str, str | None]:
         )
     raw_path = matches[0]
     logger.info("[downloader] downloaded %s (%d bytes)", raw_path, os.path.getsize(raw_path))
-    return _to_mp3(raw_path, job_id), caption, thumbnail_url
+    # Meta only after a successful download — a failing platform shouldn't
+    # burn an extra 30s on metadata it will never use.
+    caption, thumbnail_url = _fetch_ytdlp_meta(url)
+    return _to_mp3(raw_path, job_id), caption, thumbnail_url, _video_path_or_none(raw_path)
 
 
-def download_audio(url: str, job_id: str) -> tuple[str, str, str | None]:
-    """Download audio from URL. Returns (audio_path, caption, thumbnail_url). Routes TikTok through TikWM."""
+def download_audio(url: str, job_id: str) -> tuple[str, str, str | None, str | None]:
+    """Download audio from URL. Returns (audio_path, caption, thumbnail_url, video_path).
+    video_path is the raw downloaded video for frame extraction, or None if the
+    download was audio-only. Routes TikTok through TikWM."""
     if "tiktok.com" in url:
         from app.services.tiktok_scraper import download_tiktok_audio
         raw_path, caption, thumbnail_url = download_tiktok_audio(url, job_id)
-        return _to_mp3(raw_path, job_id), caption, thumbnail_url
+        return _to_mp3(raw_path, job_id), caption, thumbnail_url, _video_path_or_none(raw_path)
 
     if "instagram.com" in url:
         try:
-            return _download_via_ytdlp(url, job_id)
-        except RuntimeError as e:
+            # yt-dlp is a best-effort free path for Instagram and usually fails
+            # fast; cap it so the Apify fallback starts sooner.
+            return _download_via_ytdlp(url, job_id, timeout=30)
+        except (RuntimeError, subprocess.TimeoutExpired) as e:
             logger.warning("[downloader] yt-dlp Instagram failed, trying Apify: %s", e)
             from app.services.instagram_apify import download_instagram_audio
             raw_path, caption, thumbnail_url = download_instagram_audio(url, job_id)
-            return _to_mp3(raw_path, job_id), caption, thumbnail_url
+            return _to_mp3(raw_path, job_id), caption, thumbnail_url, _video_path_or_none(raw_path)
 
     return _download_via_ytdlp(url, job_id)
 

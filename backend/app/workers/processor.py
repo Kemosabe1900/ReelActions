@@ -63,6 +63,7 @@ class VideoProcessor:
 
     def process_video(self, job_id: str, video_id: str, video_url: str, user_id: str):
         audio_path = None
+        video_path = None
         try:
             cached = self._check_url_cache(video_url)
             if cached:
@@ -115,7 +116,7 @@ class VideoProcessor:
                     category=classification.category,
                 )
             else:
-                audio_path, caption, thumbnail_url = download_audio(video_url, job_id)
+                audio_path, caption, thumbnail_url, video_path = download_audio(video_url, job_id)
 
                 self._update_job(job_id, "transcribing")
                 transcript_result = self.transcriber.transcribe(audio_path, video_url=video_url)
@@ -135,7 +136,7 @@ class VideoProcessor:
                     update_data["thumbnail_url"] = thumbnail_url
                 self._supabase.table("videos").update(update_data).eq("id", video_id).execute()
 
-                frames = extract_frames_for_vision(video_url, transcript_result.segments)
+                frames = extract_frames_for_vision(video_path, transcript_result.segments)
 
                 self._update_job(job_id, "classifying")
                 classification = self.classifier.classify(
@@ -199,11 +200,12 @@ class VideoProcessor:
             alert(f"Job {job_id} failed — {msg}")
             raise ProcessingError(str(e))
         finally:
-            if audio_path and os.path.exists(audio_path):
-                try:
-                    os.remove(audio_path)
-                except OSError:
-                    pass
+            for path in (audio_path, video_path):
+                if path and os.path.exists(path):
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
 
 
 _video_processor: Optional[VideoProcessor] = None

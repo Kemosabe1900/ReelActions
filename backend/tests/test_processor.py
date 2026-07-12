@@ -8,7 +8,7 @@ from app.services.classifier import ClassificationResult
 @pytest.fixture
 def processor():
     with patch("app.workers.processor.get_db") as mock_sb, \
-         patch("app.workers.processor.download_audio", return_value=("/tmp/test.mp3", "Mix this together to make a quick meal.", None)) as mock_dl, \
+         patch("app.workers.processor.download_audio", return_value=("/tmp/test.mp3", "Mix this together to make a quick meal.", None, None)) as mock_dl, \
          patch("app.workers.processor.get_transcription_service") as mock_tr, \
          patch("app.workers.processor.get_classification_service") as mock_cl, \
          patch("app.workers.processor.get_embedding_service") as mock_em, \

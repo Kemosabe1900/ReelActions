@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import Constants from 'expo-constants';
 import { StatusBar } from 'expo-status-bar';
@@ -28,6 +29,32 @@ if (SENTRY_DSN) {
 }
 
 SplashScreen.preventAutoHideAsync();
+
+// expo-router renders this on any uncaught render error in the route tree,
+// instead of a frozen white screen.
+export function ErrorBoundary({ error, retry }: { error: Error; retry: () => Promise<void> }) {
+  useEffect(() => {
+    Sentry.captureException(error);
+    SplashScreen.hideAsync().catch(() => {});
+  }, [error]);
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 32 }}>
+      <Text style={{ color: colors.onSurface, fontSize: 18, fontWeight: '700', textAlign: 'center' }}>
+        Something went wrong
+      </Text>
+      <Text style={{ color: colors.onSurfaceVariant, fontSize: 14, textAlign: 'center' }}>
+        The app hit an unexpected error. Tap below to reload.
+      </Text>
+      <TouchableOpacity
+        onPress={() => retry()}
+        style={{ backgroundColor: colors.primary, borderRadius: 999, paddingHorizontal: 24, paddingVertical: 12 }}
+      >
+        <Text style={{ color: colors.onPrimary, fontWeight: '700' }}>Reload</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 function PushRegistrar() {
   const { session } = useAuth();

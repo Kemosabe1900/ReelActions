@@ -7,6 +7,7 @@ import { colors, typography, spacing, radii } from '@/constants/theme';
 import { getCategoryColor } from '@/constants/categories';
 import { api, Video } from '@/services/api';
 import { useData } from '@/contexts/DataContext';
+import { hapticSuccess } from '@/services/haptics';
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -187,6 +188,7 @@ export default function VideoDetailScreen() {
 
   const handleToggleTried = () => {
     if (!video) return;
+    hapticSuccess();
     const previous = video;
     setVideo({
       ...video,

@@ -144,6 +144,10 @@ export default function SignInScreen() {
             </View>
           </View>
 
+          <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password')} hitSlop={8} style={styles.forgotRow}>
+            <Text style={styles.forgotLink}>Forgot password?</Text>
+          </TouchableOpacity>
+
           {error && <Text style={styles.error}>{error}</Text>}
 
           <TouchableOpacity style={styles.cta} onPress={handleEmail} disabled={loading} activeOpacity={0.8}>
@@ -298,6 +302,15 @@ const styles = StyleSheet.create({
     fontFamily: 'HankenGrotesk_400Regular',
   },
   switchLink: {
+    color: colors.primary,
+    fontFamily: 'HankenGrotesk_600SemiBold',
+  },
+  forgotRow: {
+    alignSelf: 'flex-end',
+    marginTop: -4,
+  },
+  forgotLink: {
+    ...typography.bodySm,
     color: colors.primary,
     fontFamily: 'HankenGrotesk_600SemiBold',
   },

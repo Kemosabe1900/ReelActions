@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TouchableHighlight, ActivityIndicator, Animated, Modal, TextInput, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TouchableHighlight, ActivityIndicator, Animated, Modal, TextInput, KeyboardAvoidingView, Platform, Image, RefreshControl } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,6 +11,7 @@ import { useData } from '@/contexts/DataContext';
 import { SaveVideoSheet } from '@/components/SaveVideoSheet';
 import { ChangeCategorySheet } from '@/components/ChangeCategorySheet';
 import { computeStreakLocal, getActiveDaysLocal } from '@/lib/streak';
+import { hapticSuccess, hapticLight } from '@/services/haptics';
 
 function SaveItem({ save, onPress, onLongPress }: { save: Video; onPress: () => void; onLongPress: () => void }) {
   return (
@@ -239,9 +240,9 @@ export default function HomeScreen() {
     addPendingJob(jobId, videoId, url);
   }, [addPendingJob]);
 
-  const handleDelete = (id: string) => { deleteVideo(id); };
+  const handleDelete = (id: string) => { hapticLight(); deleteVideo(id); };
 
-  const handleToggleTried = (id: string) => { toggleTried(id); };
+  const handleToggleTried = (id: string) => { hapticSuccess(); toggleTried(id); };
 
   const handleRename = () => {
     if (!renameTarget || !renameText.trim()) return;
@@ -250,6 +251,13 @@ export default function HomeScreen() {
     setRenameTarget(null);
     renameVideo(id, newTitle);
   };
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handlePullRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refresh();
+    setRefreshing(false);
+  }, [refresh]);
 
   const activeJobs = pendingJobs.filter(j => !j.failed);
   const failedJobs = pendingJobs.filter(j => j.failed);
@@ -299,7 +307,17 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handlePullRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Text style={styles.greeting}>{getGreeting()}</Text>

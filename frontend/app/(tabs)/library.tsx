@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
+import { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,6 +36,12 @@ function groupByCategory(videos: Video[]): CategoryStat[] {
 
 export default function LibraryScreen() {
   const { videos, profile, loading, error, refresh } = useData();
+  const [refreshing, setRefreshing] = useState(false);
+  const handlePullRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refresh();
+    setRefreshing(false);
+  }, [refresh]);
 
   if (loading) {
     return (
@@ -70,7 +77,17 @@ export default function LibraryScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handlePullRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
         <View style={styles.header}>
           <View>
             <Text style={styles.libraryLabel}>Your Library</Text>

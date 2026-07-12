@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import Constants from 'expo-constants';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import {
@@ -53,7 +54,7 @@ function PushRegistrar() {
 
 function ShareIntentHandler() {
   const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
-  const { addPendingJob } = useData();
+  const { addPendingJob, addFailedSave } = useData();
 
   useEffect(() => {
     if (!hasShareIntent) return;
@@ -62,9 +63,43 @@ function ShareIntentHandler() {
     const trimmed = url.trim();
     api.videos.submit(trimmed)
       .then(res => addPendingJob(res.job_id, res.video_id, trimmed))
-      .catch(() => {})
+      .catch((e: any) => addFailedSave(trimmed, e.message || 'Something went wrong. Please try again.'))
       .finally(() => resetShareIntent());
   }, [hasShareIntent]);
+
+  return null;
+}
+
+const IS_EXPO_GO = Constants.appOwnership === 'expo';
+
+// Navigates to the video a "Save ready!" push points at. Waits for
+// AUTHENTICATED so the push lands after StateGuard settles the root route.
+function NotificationNavigator() {
+  const { status } = useAppState();
+  const router = useRouter();
+  const [videoId, setVideoId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (IS_EXPO_GO) return;
+    try {
+      const Notifications = require('expo-notifications') as typeof import('expo-notifications');
+      const extractId = (res: unknown) => {
+        const id = (res as any)?.notification?.request?.content?.data?.video_id;
+        if (id) setVideoId(String(id));
+      };
+      const sub = Notifications.addNotificationResponseReceivedListener(extractId);
+      Notifications.getLastNotificationResponseAsync().then(extractId).catch(() => {});
+      return () => sub.remove();
+    } catch {
+      return;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!videoId || status !== 'AUTHENTICATED') return;
+    router.push(`/video/${videoId}` as never);
+    setVideoId(null);
+  }, [videoId, status]);
 
   return null;
 }
@@ -88,6 +123,7 @@ const HOME_FOR_STATUS: Record<Exclude<AppStatus, 'HYDRATING'>, string> = {
 
 function StateGuard() {
   const { status } = useAppState();
+  const segments = useSegments();
   const router = useRouter();
   const splashHidden = useRef(false);
 
@@ -97,8 +133,9 @@ function StateGuard() {
       splashHidden.current = true;
       SplashScreen.hideAsync().catch(() => {});
     }
+    if (ALLOWED_BY_STATUS[status](segments as string[])) return;
     router.replace(HOME_FOR_STATUS[status] as never);
-  }, [status]);
+  }, [status, segments]);
 
   return null;
 }
@@ -135,6 +172,7 @@ export default function RootLayout() {
             <PushRegistrar />
             <ShareIntentHandler />
             <StateGuard />
+            <NotificationNavigator />
             <StatusBar style="light" />
             {DEBUG_OVERLAY && <DebugOverlay />}
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>

@@ -165,11 +165,30 @@ function SourceIcon({ url }: { url: string }) {
   return <Ionicons name="play-circle-outline" size={14} color={colors.onSurfaceVariant} />;
 }
 
+function SavingStrip({ count, escalated }: { count: number; escalated: boolean }) {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(anim, { toValue: 1, duration: 220, useNativeDriver: false }).start();
+  }, []);
+
+  return (
+    <Animated.View style={[styles.savingStrip, { opacity: anim, transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }]}>
+      <ActivityIndicator size="small" color={colors.primary} />
+      <Text style={styles.savingStripText}>
+        {escalated
+          ? "Still saving... We'll notify you when it's ready."
+          : count === 1 ? 'Saving video...' : `Saving ${count} videos...`}
+      </Text>
+    </Animated.View>
+  );
+}
+
 
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { videos, profile, loading, error, refresh, pendingJobs, addPendingJob, removePendingJob } = useData();
+  const { videos, profile, loading, error, refresh, pendingJobs, addPendingJob, removePendingJob, retryJob } = useData();
   const [showSave, setShowSave] = useState(false);
   const [contextVideo, setContextVideo] = useState<Video | null>(null);
   const [renameVideo, setRenameVideo] = useState<Video | null>(null);
@@ -245,6 +264,8 @@ export default function HomeScreen() {
     } catch {}
   };
 
+  const activeJobs = pendingJobs.filter(j => !j.failed);
+  const failedJobs = pendingJobs.filter(j => j.failed);
   const recent = videos.slice(0, 4);
   const resurface = (() => {
     if (videos.length < 10) return null;
@@ -353,40 +374,36 @@ export default function HomeScreen() {
           </Animated.View>
         </View>
 
-        {(pendingJobs.length > 0 || recent.length > 0) && (
+        {activeJobs.length > 0 && (
+          <SavingStrip count={activeJobs.length} escalated={activeJobs.some(j => j.escalated)} />
+        )}
+
+        {(failedJobs.length > 0 || recent.length > 0) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Recent Saves</Text>
             <View style={styles.saveList}>
-              {pendingJobs.map((job, idx) => (
+              {failedJobs.map((job, idx) => (
                 <View key={job.jobId}>
                   <View style={styles.saveItem}>
                     <View style={styles.saveItemInner}>
                     <View style={styles.thumbnail}>
-                      {job.failed ? (
-                        <Ionicons name="alert-circle-outline" size={22} color={colors.error} />
-                      ) : (
-                        <>
-                          {job.url.includes('instagram.com')
-                            ? <FontAwesome5 name="instagram" size={20} color={colors.onSurfaceVariant} />
-                            : <Ionicons name="logo-tiktok" size={20} color={colors.onSurfaceVariant} />}
-                          <ActivityIndicator size="small" color={colors.primary} style={{ position: 'absolute', bottom: 4, right: 4 }} />
-                        </>
-                      )}
+                      <Ionicons name="alert-circle-outline" size={22} color={colors.error} />
                     </View>
                     <View style={styles.cardContent}>
-                      <Text style={styles.saveTitle}>{job.failed ? 'Processing failed' : 'Processing...'}</Text>
-                      <Text style={styles.saveMeta}>
-                        {job.failed ? 'Tap × to dismiss' : `Saving from ${job.url.includes('instagram.com') ? 'Instagram' : 'TikTok'}`}
+                      <Text style={styles.saveTitle}>Save failed</Text>
+                      <Text style={styles.saveMeta} numberOfLines={2}>
+                        {job.errorMessage ?? 'Something went wrong. Please try again.'}
                       </Text>
                     </View>
-                    {job.failed && (
-                      <TouchableOpacity hitSlop={12} onPress={() => removePendingJob(job.jobId)}>
-                        <Ionicons name="close" size={20} color={colors.onSurfaceVariant} />
-                      </TouchableOpacity>
-                    )}
+                    <TouchableOpacity style={styles.retryBtn} onPress={() => retryJob(job.jobId)} hitSlop={8}>
+                      <Text style={styles.retryBtnText}>Retry</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity hitSlop={12} onPress={() => removePendingJob(job.jobId)}>
+                      <Ionicons name="close" size={20} color={colors.onSurfaceVariant} />
+                    </TouchableOpacity>
                     </View>
                   </View>
-                  {(idx < pendingJobs.length - 1 || recent.length > 0) && <View style={styles.separator} />}
+                  {(idx < failedJobs.length - 1 || recent.length > 0) && <View style={styles.separator} />}
                 </View>
               ))}
               {recent.map((save, idx) => (
@@ -606,6 +623,27 @@ const styles = StyleSheet.create({
   },
   calendarDotActive: {
     backgroundColor: colors.primary,
+  },
+  savingStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  savingStripText: {
+    ...typography.bodySm,
+    color: colors.onSurfaceVariant,
+    fontFamily: 'HankenGrotesk_400Regular',
+  },
+  retryBtn: {
+    backgroundColor: colors.primary + '18',
+    borderRadius: radii.full,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  retryBtnText: {
+    ...typography.bodySm,
+    color: colors.primary,
+    fontFamily: 'HankenGrotesk_700Bold',
   },
   section: {
     gap: spacing.elementTight,

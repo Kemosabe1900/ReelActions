@@ -2,7 +2,9 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef } f
 import { api, Video, Profile } from '@/services/api';
 import { useAuth } from './AuthContext';
 
-export type PendingJob = { jobId: string; videoId: string; url: string; failed: boolean };
+export type PendingJob = { jobId: string; videoId: string; url: string; failed: boolean; createdAt: number; escalated: boolean; errorMessage?: string };
+
+const ESCALATE_AFTER_MS = 150_000;
 
 type DataContextType = {
   videos: Video[];
@@ -12,7 +14,9 @@ type DataContextType = {
   refresh: () => Promise<void>;
   pendingJobs: PendingJob[];
   addPendingJob: (jobId: string, videoId: string, url: string) => void;
+  addFailedSave: (url: string, errorMessage: string) => void;
   removePendingJob: (jobId: string) => void;
+  retryJob: (jobId: string) => Promise<void>;
 };
 
 const DataContext = createContext<DataContextType>({
@@ -23,7 +27,9 @@ const DataContext = createContext<DataContextType>({
   refresh: async () => {},
   pendingJobs: [],
   addPendingJob: () => {},
+  addFailedSave: () => {},
   removePendingJob: () => {},
+  retryJob: async () => {},
 });
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
@@ -35,15 +41,46 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [pendingJobs, setPendingJobs] = useState<PendingJob[]>([]);
   const prevUserIdRef = useRef<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pendingJobsRef = useRef<PendingJob[]>([]);
+  useEffect(() => { pendingJobsRef.current = pendingJobs; }, [pendingJobs]);
 
   const addPendingJob = useCallback((jobId: string, videoId: string, url: string) => {
     setPendingJobs(prev =>
-      prev.some(j => j.jobId === jobId) ? prev : [...prev, { jobId, videoId, url, failed: false }]
+      prev.some(j => j.jobId === jobId) ? prev : [...prev, { jobId, videoId, url, failed: false, createdAt: Date.now(), escalated: false }]
     );
+  }, []);
+
+  const addFailedSave = useCallback((url: string, errorMessage: string) => {
+    setPendingJobs(prev => [...prev, {
+      jobId: `local-${Date.now()}`,
+      videoId: '',
+      url,
+      failed: true,
+      createdAt: Date.now(),
+      escalated: false,
+      errorMessage,
+    }]);
   }, []);
 
   const removePendingJob = useCallback((jobId: string) => {
     setPendingJobs(prev => prev.filter(j => j.jobId !== jobId));
+  }, []);
+
+  const retryJob = useCallback(async (jobId: string) => {
+    const job = pendingJobsRef.current.find(j => j.jobId === jobId);
+    if (!job) return;
+    try {
+      const res = await api.videos.submit(job.url);
+      setPendingJobs(prev => prev.map(j => j.jobId === jobId
+        ? { jobId: res.job_id, videoId: res.video_id, url: job.url, failed: false, createdAt: Date.now(), escalated: false }
+        : j
+      ));
+    } catch (e: any) {
+      setPendingJobs(prev => prev.map(j => j.jobId === jobId
+        ? { ...j, errorMessage: e.message || 'Something went wrong. Please try again.' }
+        : j
+      ));
+    }
   }, []);
 
   const refresh = useCallback(async () => {
@@ -90,6 +127,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     pollRef.current = setInterval(async () => {
+      setPendingJobs(prev => prev.map(j =>
+        !j.failed && !j.escalated && Date.now() - j.createdAt > ESCALATE_AFTER_MS
+          ? { ...j, escalated: true }
+          : j
+      ));
       for (const job of active) {
         try {
           const status = await api.jobs.get(job.jobId);
@@ -106,7 +148,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [pendingJobs, refresh]);
 
   return (
-    <DataContext.Provider value={{ videos, profile, loading, error, refresh, pendingJobs, addPendingJob, removePendingJob }}>
+    <DataContext.Provider value={{ videos, profile, loading, error, refresh, pendingJobs, addPendingJob, addFailedSave, removePendingJob, retryJob }}>
       {children}
     </DataContext.Provider>
   );

@@ -28,10 +28,16 @@ class VideoProcessor:
             pass
 
     def _update_job(self, job_id: str, status: str, error: str | None = None):
-        data = {"status": status}
+        from datetime import datetime, timezone
+
+        data = {"status": status, "updated_at": datetime.now(timezone.utc).isoformat()}
         if error:
             data["error_message"] = error
-        self._supabase.table("processing_jobs").update(data).eq("id", job_id).execute()
+        query = self._supabase.table("processing_jobs").update(data).eq("id", job_id)
+        if status == "completed":
+            # Never resurrect a job the API already declared failed.
+            query = query.neq("status", "failed")
+        query.execute()
 
     def _check_url_cache(self, video_url: str) -> dict | None:
         result = (

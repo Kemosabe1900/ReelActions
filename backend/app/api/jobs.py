@@ -5,7 +5,10 @@ from app.database import get_db
 
 router = APIRouter(tags=["jobs"])
 
-JOB_TIMEOUT_SECONDS = 90
+# A live job heartbeats via updated_at on every stage transition. The longest
+# silent stretch is the download stage (yt-dlp + Apify retry ~510s), so only
+# a job silent for longer than that is actually dead (e.g. killed by a deploy).
+STALE_AFTER_SECONDS = 600
 TERMINAL_STATUSES = {"completed", "failed"}
 
 
@@ -23,9 +26,10 @@ def get_job_status(job_id: str, user_id: str = Depends(get_current_user)):
     job = result.data[0]
 
     if job["status"] not in TERMINAL_STATUSES:
-        created_at = datetime.fromisoformat(job["created_at"].replace("Z", "+00:00"))
-        elapsed = datetime.now(timezone.utc) - created_at
-        if elapsed > timedelta(seconds=JOB_TIMEOUT_SECONDS):
+        last_beat = job.get("updated_at") or job["created_at"]
+        beat_at = datetime.fromisoformat(last_beat.replace("Z", "+00:00"))
+        elapsed = datetime.now(timezone.utc) - beat_at
+        if elapsed > timedelta(seconds=STALE_AFTER_SECONDS):
             db.table("processing_jobs").update({
                 "status": "failed",
                 "error_message": "Processing timed out. Please try again.",

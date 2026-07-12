@@ -188,10 +188,10 @@ function SavingStrip({ count, escalated }: { count: number; escalated: boolean }
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { videos, profile, loading, error, refresh, pendingJobs, addPendingJob, removePendingJob, retryJob } = useData();
+  const { videos, profile, loading, error, refresh, pendingJobs, addPendingJob, removePendingJob, retryJob, toggleTried, deleteVideo, renameVideo } = useData();
   const [showSave, setShowSave] = useState(false);
   const [contextVideo, setContextVideo] = useState<Video | null>(null);
-  const [renameVideo, setRenameVideo] = useState<Video | null>(null);
+  const [renameTarget, setRenameTarget] = useState<Video | null>(null);
   const [renameText, setRenameText] = useState('');
   const [changeCategoryVideo, setChangeCategoryVideo] = useState<Video | null>(null);
   const prevActiveDaysRef = useRef<number[]>([]);
@@ -239,29 +239,16 @@ export default function HomeScreen() {
     addPendingJob(jobId, videoId, url);
   }, [addPendingJob]);
 
-  const handleDelete = async (id: string) => {
-    try {
-      await api.videos.delete(id);
-      refresh();
-    } catch {}
-  };
+  const handleDelete = (id: string) => { deleteVideo(id); };
 
-  const handleToggleTried = async (id: string) => {
-    try {
-      await api.videos.toggleTried(id);
-      refresh();
-    } catch {}
-  };
+  const handleToggleTried = (id: string) => { toggleTried(id); };
 
-  const handleRename = async () => {
-    if (!renameVideo || !renameText.trim()) return;
-    const id = renameVideo.id;
+  const handleRename = () => {
+    if (!renameTarget || !renameText.trim()) return;
+    const id = renameTarget.id;
     const newTitle = renameText.trim();
-    setRenameVideo(null);
-    try {
-      await api.videos.rename(id, newTitle);
-      refresh();
-    } catch {}
+    setRenameTarget(null);
+    renameVideo(id, newTitle);
   };
 
   const activeJobs = pendingJobs.filter(j => !j.failed);
@@ -470,7 +457,7 @@ export default function HomeScreen() {
           onToggleTried={() => { handleToggleTried(contextVideo.id); setContextVideo(null); }}
           onRename={() => {
             setRenameText(contextVideo.title ?? '');
-            setRenameVideo(contextVideo);
+            setRenameTarget(contextVideo);
             setContextVideo(null);
           }}
           onChangeCategory={() => {
@@ -479,11 +466,11 @@ export default function HomeScreen() {
           }}
         />
       )}
-      {renameVideo && (
+      {renameTarget && (
         <RenameModal
           text={renameText}
           onChangeText={setRenameText}
-          onCancel={() => setRenameVideo(null)}
+          onCancel={() => setRenameTarget(null)}
           onSave={handleRename}
         />
       )}

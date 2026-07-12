@@ -6,6 +6,7 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { colors, typography, spacing, radii } from '@/constants/theme';
 import { getCategoryColor } from '@/constants/categories';
 import { api, Video } from '@/services/api';
+import { useData } from '@/contexts/DataContext';
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -167,6 +168,7 @@ function Row({ label, value }: { label: string; value: string }) {
 
 export default function VideoDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { toggleTried } = useData();
   const [video, setVideo] = useState<Video | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -183,14 +185,15 @@ export default function VideoDetailScreen() {
 
   useEffect(() => { load(); }, [load]);
 
-  const handleToggleTried = async () => {
+  const handleToggleTried = () => {
     if (!video) return;
-    try {
-      const updated = await api.videos.toggleTried(video.id);
-      setVideo(updated);
-    } catch (e) {
-      console.error('Toggle tried error:', e);
-    }
+    const previous = video;
+    setVideo({
+      ...video,
+      tried: !video.tried,
+      tried_count: !video.tried ? video.tried_count + 1 : video.tried_count,
+    });
+    toggleTried(video.id).catch(() => setVideo(previous));
   };
 
   const handleShare = () => {

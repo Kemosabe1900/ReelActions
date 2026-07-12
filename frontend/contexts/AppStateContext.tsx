@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePurchases } from '@/contexts/PurchasesContext';
@@ -36,15 +36,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setOnboardingDone(val === 'true');
     })();
   }, []);
-
-  const prevSession = useRef(session);
-  useEffect(() => {
-    if (prevSession.current && !session) {
-      AsyncStorage.removeItem('onboarding_complete');
-      setOnboardingDone(false);
-    }
-    prevSession.current = session;
-  }, [session]);
 
   const markOnboardingComplete = async () => {
     await AsyncStorage.setItem('onboarding_complete', 'true');

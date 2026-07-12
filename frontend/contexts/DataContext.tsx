@@ -17,6 +17,9 @@ type DataContextType = {
   addFailedSave: (url: string, errorMessage: string) => void;
   removePendingJob: (jobId: string) => void;
   retryJob: (jobId: string) => Promise<void>;
+  toggleTried: (videoId: string) => Promise<void>;
+  deleteVideo: (videoId: string) => Promise<void>;
+  renameVideo: (videoId: string, title: string) => Promise<void>;
 };
 
 const DataContext = createContext<DataContextType>({
@@ -30,6 +33,9 @@ const DataContext = createContext<DataContextType>({
   addFailedSave: () => {},
   removePendingJob: () => {},
   retryJob: async () => {},
+  toggleTried: async () => {},
+  deleteVideo: async () => {},
+  renameVideo: async () => {},
 });
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
@@ -114,6 +120,39 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [session, refresh]);
 
+  // Optimistic mutations: flip local state instantly, sync with the server in
+  // the background, and fall back to a full refresh if the call fails.
+  const toggleTried = useCallback(async (videoId: string) => {
+    setVideos(prev => prev.map(v => v.id === videoId
+      ? { ...v, tried: !v.tried, tried_count: !v.tried ? v.tried_count + 1 : v.tried_count }
+      : v
+    ));
+    try {
+      await api.videos.toggleTried(videoId);
+      refresh();
+    } catch {
+      refresh();
+    }
+  }, [refresh]);
+
+  const deleteVideo = useCallback(async (videoId: string) => {
+    setVideos(prev => prev.filter(v => v.id !== videoId));
+    try {
+      await api.videos.delete(videoId);
+    } catch {
+      refresh();
+    }
+  }, [refresh]);
+
+  const renameVideo = useCallback(async (videoId: string, title: string) => {
+    setVideos(prev => prev.map(v => v.id === videoId ? { ...v, title } : v));
+    try {
+      await api.videos.rename(videoId, title);
+    } catch {
+      refresh();
+    }
+  }, [refresh]);
+
   // Drop pending jobs whose video has already landed in the library.
   useEffect(() => {
     setPendingJobs(prev => prev.filter(job => !videos.some(v => v.id === job.videoId)));
@@ -148,7 +187,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [pendingJobs, refresh]);
 
   return (
-    <DataContext.Provider value={{ videos, profile, loading, error, refresh, pendingJobs, addPendingJob, addFailedSave, removePendingJob, retryJob }}>
+    <DataContext.Provider value={{ videos, profile, loading, error, refresh, pendingJobs, addPendingJob, addFailedSave, removePendingJob, retryJob, toggleTried, deleteVideo, renameVideo }}>
       {children}
     </DataContext.Provider>
   );

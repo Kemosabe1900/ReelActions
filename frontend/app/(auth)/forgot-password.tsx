@@ -41,7 +41,7 @@ export default function ForgotPasswordScreen() {
 
   const handleReset = async () => {
     if (code.trim().length < 6) {
-      setError('Enter the 6-digit code from your email.');
+      setError('Enter the code from your email.');
       return;
     }
     if (password.length < 8) {
@@ -90,7 +90,7 @@ export default function ForgotPasswordScreen() {
           {step === 'email' ? (
             <>
               <Text style={styles.subtitle}>
-                Enter your email and we'll send you a 6-digit code.
+                Enter your email and we'll send you a reset code.
               </Text>
               <View style={styles.form}>
                 <View style={styles.inputRow}>
@@ -130,9 +130,9 @@ export default function ForgotPasswordScreen() {
                     value={code}
                     onChangeText={setCode}
                     keyboardType="number-pad"
-                    maxLength={6}
+                    maxLength={10}
                     placeholderTextColor={colors.onSurfaceVariant}
-                    placeholder="6-digit code"
+                    placeholder="Reset code"
                   />
                 </View>
                 <View style={styles.inputRow}>

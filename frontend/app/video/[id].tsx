@@ -233,7 +233,12 @@ export default function VideoDetailScreen() {
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={styles.hero}>
             {video.thumbnail_url ? (
-              <Image source={{ uri: video.thumbnail_url }} style={styles.heroImage} resizeMode="cover" />
+              <>
+                <Image source={{ uri: video.thumbnail_url }} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={16} />
+                <View style={styles.heroPortrait}>
+                  <Image source={{ uri: video.thumbnail_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                </View>
+              </>
             ) : (
               <View style={styles.heroFallback}>
                 <SourceIcon url={video.url} size={56} color={colors.onSurfaceVariant} />
@@ -314,21 +319,25 @@ const styles = StyleSheet.create({
     gap: spacing.stackGap,
   },
   hero: {
-    height: 220,
+    height: 380,
     backgroundColor: '#1a1a1a',
     borderRadius: radii.xl,
     marginTop: spacing.stackGap,
     overflow: 'hidden',
     position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroPortrait: {
+    width: 380 * (9 / 16),
+    height: '100%',
+    borderRadius: radii.lg,
+    overflow: 'hidden',
   },
   heroFallback: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  heroImage: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
   },
   sourceCorner: {
     position: 'absolute',

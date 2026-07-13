@@ -9,6 +9,7 @@ import { getCategoryColor } from '@/constants/categories';
 import { api, Video } from '@/services/api';
 import { useData } from '@/contexts/DataContext';
 import { SaveVideoSheet } from '@/components/SaveVideoSheet';
+import { VideoThumb, THUMB_HEIGHT } from '@/components/VideoThumb';
 import { ChangeCategorySheet } from '@/components/ChangeCategorySheet';
 import { computeStreakLocal, getActiveDaysLocal } from '@/lib/streak';
 import { hapticSuccess, hapticLight } from '@/services/haptics';
@@ -17,13 +18,7 @@ function SaveItem({ save, onPress, onLongPress }: { save: Video; onPress: () => 
   return (
     <TouchableHighlight onPress={onPress} onLongPress={onLongPress} delayLongPress={150} underlayColor="#1e1e1e" activeOpacity={1} style={styles.saveItem}>
       <View style={styles.saveItemInner}>
-        {save.thumbnail_url ? (
-          <Image source={{ uri: save.thumbnail_url }} style={styles.thumbnail} resizeMode="cover" />
-        ) : (
-          <LinearGradient colors={['#1c1c1c', '#252525']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.thumbnail}>
-            <Ionicons name="play" size={18} color="#22c55e" />
-          </LinearGradient>
-        )}
+        <VideoThumb uri={save.thumbnail_url} />
         <View style={styles.cardContent}>
           <View style={styles.cardTop}>
             {save.category && (
@@ -445,13 +440,7 @@ export default function HomeScreen() {
               activeOpacity={0.75}
               onPress={() => router.push(`/video/${resurface.id}`)}
             >
-              {resurface.thumbnail_url ? (
-                <Image source={{ uri: resurface.thumbnail_url }} style={styles.thumbnail} resizeMode="cover" />
-              ) : (
-                <LinearGradient colors={['#1c1c1c', '#252525']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.thumbnail}>
-                  <Ionicons name="play" size={18} color="#22c55e" />
-                </LinearGradient>
-              )}
+              <VideoThumb uri={resurface.thumbnail_url} />
               <View style={styles.cardContent}>
                 {resurface.category && (
                   <View style={[styles.categoryChip, { backgroundColor: getCategoryColor(resurface.category) + '20' }]}>
@@ -681,7 +670,7 @@ const styles = StyleSheet.create({
   },
   thumbnail: {
     width: 56,
-    height: 56,
+    height: THUMB_HEIGHT,
     backgroundColor: colors.surfaceHigh,
     borderRadius: radii.md,
     overflow: 'hidden',

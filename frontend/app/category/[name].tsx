@@ -9,6 +9,7 @@ import { getCategoryColor } from '@/constants/categories';
 import { api, Video } from '@/services/api';
 import { useData } from '@/contexts/DataContext';
 import { ChangeCategorySheet } from '@/components/ChangeCategorySheet';
+import { VideoThumb } from '@/components/VideoThumb';
 
 function ContextMenu({
   video,
@@ -233,13 +234,7 @@ export default function CategoryScreen() {
                 delayLongPress={150}
               >
                 <View style={styles.thumbnailWrapper}>
-                  {video.thumbnail_url ? (
-                    <Image source={{ uri: video.thumbnail_url }} style={styles.thumbnail} resizeMode="cover" />
-                  ) : (
-                    <LinearGradient colors={['#1c1c1c', '#252525']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.thumbnail}>
-                      <Ionicons name="play" size={20} color="#22c55e" />
-                    </LinearGradient>
-                  )}
+                  <VideoThumb uri={video.thumbnail_url} />
                   {video.tried && (
                     <View style={styles.triedOverlay}>
                       <Ionicons name="checkmark-circle" size={18} color={colors.primary} />

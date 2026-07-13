@@ -157,6 +157,27 @@ useEffect(() => {
 
 ## Session Log (Newest First)
 
+### 2026-07-11/12 (audit + fix marathon)
+
+**Full app audit run, 10-item fix list executed (all but two parked items).**
+
+Pushed to main (deployed via Railway, rollback tag `prod-2026-07-11` = bdab87f):
+- Job timeout: 90s created_at check → 600s heartbeat staleness on new `updated_at` (migration 007, RUN in Supabase). Processor heartbeats per stage; `completed` never overwrites `failed`.
+- Token fixes: AppState `startAutoRefresh`/`stopAutoRefresh` wiring in lib/supabase.ts (2-3 day logout bug); push token dedupe on register + DELETE /push-tokens + unregister on sign-out (cross-account notification leak).
+- Save UX: slim SavingStrip replaces big processing card (escalation copy at 2.5 min); share-intent failures surface with real error + Retry; NotificationNavigator deep-links "Save ready!" push → video/[id].
+- StateGuard now actually uses ALLOWED_BY_STATUS (was dead code) with useSegments.
+- Sign-out no longer wipes onboarding_complete (funnel replay bug).
+- Backend perf: frame extractor reuses downloaded video (was re-downloading up to 200MB), IG yt-dlp capped 30s, meta fetched only after successful download, TimeoutExpired now falls through to Apify.
+- Optimistic toggleTried/deleteVideo/renameVideo in DataContext.
+- Forgot-password: OTP flow ((auth)/forgot-password.tsx), verifyOtp type=recovery + updateUser. Supabase Reset Password template edited to send {{ .Token }}. NOTE: codes are 8 digits, field accepts 10.
+- ErrorBoundary export in _layout, RefreshControl home/library, expo-haptics (NEW NATIVE MODULE → needs build).
+
+Local, UNPUSHED: b71e736 (portrait blur-fill list thumbnails, components/VideoThumb.tsx), 47f2ca3 (video detail hero 380px blur-fill portrait + OTP field widened).
+
+UNCOMMITTED ON PURPOSE: `BYPASS_PAYWALL = true` in constants/config.ts — Expo Go testing only (RC absent in Expo Go, can never be subscribed there). **FLIP BACK BEFORE EAS BUILD.**
+
+Next session: flip flag → push b71e736+47f2ca3 → `eas build --platform ios --profile production` → TestFlight verify (strip+escalation, push tap opens video, sign-out keeps onboarding, forgot-password, retry on failed save, new thumbnails). Parked: onboarding answers persistence (#9), table-based job queue (#11 — full design in task, do before marketing push).
+
 ### 2026-06-13 (late, ending session)
 
 **Where we are:**

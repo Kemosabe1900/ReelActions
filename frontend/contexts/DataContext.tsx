@@ -1,6 +1,9 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api, Video, Profile } from '@/services/api';
 import { useAuth } from './AuthContext';
+
+const cacheKey = (userId: string) => `data_cache_${userId}`;
 
 export type PendingJob = { jobId: string; videoId: string; url: string; failed: boolean; createdAt: number; escalated: boolean; errorMessage?: string };
 
@@ -95,6 +98,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setVideos(v);
       setProfile(p);
       setError(false);
+      const uid = prevUserIdRef.current;
+      if (uid) {
+        AsyncStorage.setItem(cacheKey(uid), JSON.stringify({ videos: v, profile: p })).catch(() => {});
+      }
     } catch {
       setError(true);
     } finally {
@@ -115,8 +122,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
     if (prevUserIdRef.current !== currentUserId) {
       prevUserIdRef.current = currentUserId;
-      setLoading(true);
-      refresh();
+      // Show the last-known library instantly from disk, then refresh from
+      // the network in the background. The spinner only appears when there
+      // is no cache yet (true first launch).
+      (async () => {
+        try {
+          const raw = await AsyncStorage.getItem(cacheKey(currentUserId!));
+          if (raw) {
+            const cached = JSON.parse(raw);
+            setVideos(cached.videos ?? []);
+            setProfile(cached.profile ?? null);
+            setLoading(false);
+          } else {
+            setLoading(true);
+          }
+        } catch {
+          setLoading(true);
+        }
+        refresh();
+      })();
     }
   }, [session, refresh]);
 

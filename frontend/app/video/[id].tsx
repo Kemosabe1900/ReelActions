@@ -169,9 +169,10 @@ function Row({ label, value }: { label: string; value: string }) {
 
 export default function VideoDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { toggleTried } = useData();
-  const [video, setVideo] = useState<Video | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { toggleTried, videos } = useData();
+  const cached = videos.find(v => v.id === id) ?? null;
+  const [video, setVideo] = useState<Video | null>(cached);
+  const [loading, setLoading] = useState(!cached);
 
   const load = useCallback(async () => {
     try {

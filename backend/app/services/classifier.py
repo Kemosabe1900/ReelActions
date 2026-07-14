@@ -77,7 +77,7 @@ class ClassificationService:
         if existing_categories:
             parts.append(f"Existing user categories: {', '.join(existing_categories)}")
         if transcript:
-            parts.append(f"Transcript:\n{transcript[:2500]}")
+            parts.append(f"Transcript:\n{transcript[:6000]}")
         else:
             parts.append("No transcript available. Classify from images only.")
         user_content.append({"type": "text", "text": "\n\n".join(parts)})

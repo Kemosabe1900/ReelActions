@@ -127,7 +127,12 @@ class VideoProcessor:
                 clean_transcript = _re.sub(r'[\[\(][^\]\)]*[\]\)]', '', transcript_text).strip()
                 useful_transcript = clean_transcript if len(clean_transcript) >= 20 else None
 
-                classify_text = useful_transcript or caption or None
+                sections = []
+                if useful_transcript:
+                    sections.append(useful_transcript)
+                if caption:
+                    sections.append(f"Caption:\n{caption}")
+                classify_text = "\n\n".join(sections) or None
                 if not classify_text:
                     raise RuntimeError("No speech or caption found in this video — cannot classify")
 

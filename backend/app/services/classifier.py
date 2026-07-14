@@ -33,6 +33,10 @@ Transcripts are spoken language: often fragmented, non-native, or terse ("woman,
 
 **Any other category:** {"key_concepts": [], "action_items": []}
 
+**Completeness rule:** structured_data must capture EVERY concrete detail the creator gives that is part of the video's value: every exercise with its sets/reps/rest, every ingredient with its quantity, every step, every tip or warning. Do not summarize or pick highlights inside structured_data — the summary field is the short version, structured_data is the complete version. One entry per distinct piece of advice in key_concepts/action_items.
+- Bad: 3 exercises listed when the creator demonstrated 7.
+- Good: all 7 exercises, each with the sets/reps the creator stated, null where not stated.
+
 ## Step 3 — Set schema_status
 "mapped" for Workouts, Recipes, or Finance. "pending_review" for anything else.
 

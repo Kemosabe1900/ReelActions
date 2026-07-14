@@ -11,6 +11,8 @@ SYSTEM_PROMPT = """You are a knowledge extractor for a personal knowledge base a
 
 Given a video transcript (and optionally images), extract structured knowledge.
 
+Transcripts are spoken language: often fragmented, non-native, or terse ("woman, body build, active three times, muscle gain"). Reconstruct the intended meaning and write it as clear advice ("Women's muscle-building: train about 3x per week..."). Reconstruct only what the words support — do not invent numbers, exercises, or ingredients that are not stated or shown.
+
 ## Step 1 — Assign a category
 - Pick the single most specific topic the video is teaching or demonstrating.
 - If existing_categories is provided, you MUST use the closest existing category whenever there is any overlap — even partial. Only create a new category name if absolutely nothing in the list fits.
@@ -34,8 +36,27 @@ Given a video transcript (and optionally images), extract structured knowledge.
 ## Step 3 — Set schema_status
 "mapped" for Workouts, Recipes, or Finance. "pending_review" for anything else.
 
-## Output (JSON only, no markdown, always respond even if transcript is minimal or music-only)
+## Writing the title and summary
+The title and summary are shown to the user as cards in their library. They must read like content, never like a description of the input.
+- Write WHAT THE VIDEO TEACHES: the method, the steps, the takeaway. Not what the video "is about".
+- NEVER mention the transcript, the audio, the video itself, or input quality. Words like "transcript", "audio", "appears to", "seems to", "difficult to extract", "with certainty" must not appear.
+- Never hedge. If details are sparse, write a shorter summary containing only what is concrete. One confident sentence beats three vague ones.
+- Bad summary: "The transcript appears to be focused on exercise techniques, though specific details are difficult to extract."
+- Good summary: "Bodyweight conditioning routine built around explosive push-up and squat variations, training to failure on each set."
+
+## Output (JSON only, no markdown, always respond even if input is minimal or music-only)
 {"category": str, "title": str (max 60 chars, specific and descriptive), "summary": str (2-3 sentences), "structured_data": {...}, "schema_status": "mapped"|"pending_review"}"""
+
+META_LANGUAGE = (
+    "transcript", "audio quality", "the audio", "appears to", "seems to",
+    "difficult to extract", "difficult to determine", "with certainty",
+    "cannot determine", "unclear from", "the video discusses", "the video appears",
+)
+
+
+def _has_meta_language(result: "ClassificationResult") -> bool:
+    text = f"{result.title} {result.summary}".lower()
+    return any(marker in text for marker in META_LANGUAGE)
 
 
 class ClassificationResult(BaseModel):
@@ -106,12 +127,53 @@ class ClassificationService:
                         raw = raw[4:]
                     raw = raw.strip()
                 data = json.loads(raw)
-                return ClassificationResult(**data)
+                result = ClassificationResult(**data)
+                if _has_meta_language(result):
+                    result = self._retry_without_meta(user_content, response, result)
+                return result
             except Exception as e:
                 last_error = e
                 logger.error("[classifier] attempt %d failed: %s", attempt, e)
 
         raise ClassificationError(f"Classification failed after 2 attempts: {str(last_error)}")
+
+    def _retry_without_meta(self, user_content, first_response, first_result: ClassificationResult) -> ClassificationResult:
+        """The first pass described the input instead of the content. Retry once
+        with corrective feedback; if it still hedges, alert and keep the retry."""
+        from app.services.alerting import alert
+
+        logger.warning("[classifier] meta-language detected, retrying: %s", first_result.summary[:150])
+        try:
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=2048,
+                temperature=0,
+                system=SYSTEM_PROMPT,
+                messages=[
+                    {"role": "user", "content": user_content},
+                    {"role": "assistant", "content": first_response.content[0].text},
+                    {"role": "user", "content": (
+                        "Your title/summary described the input instead of the content "
+                        "(mentions of the transcript, audio, or uncertainty). Rewrite the JSON: "
+                        "state only concrete methods, steps, or takeaways, confidently. "
+                        "Shorter is fine. Same JSON format, no markdown."
+                    )},
+                ],
+            )
+            raw = response.content[0].text.strip()
+            if raw.startswith("```"):
+                raw = raw.split("```")[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
+                raw = raw.strip()
+            result = ClassificationResult(**json.loads(raw))
+            if _has_meta_language(result):
+                alert(f"Classifier hedging survived retry: {result.summary[:200]}")
+            return result
+        except Exception as e:
+            logger.error("[classifier] meta-retry failed, keeping first result: %s", e)
+            alert(f"Classifier meta-retry failed ({e}); shipped hedged summary: {first_result.summary[:200]}")
+            return first_result
 
 
 _classification_service: Optional[ClassificationService] = None

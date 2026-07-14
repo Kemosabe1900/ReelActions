@@ -100,3 +100,48 @@ def test_classify_raises_after_two_json_failures(mock_anthropic):
     service = ClassificationService()
     with pytest.raises(ClassificationError):
         service.classify("Some transcript")
+
+
+HEDGED = {
+    "category": "Workouts",
+    "title": "Body training methods",
+    "summary": "The transcript appears to be focused on exercise techniques, though the audio quality makes specific details difficult to extract with certainty.",
+    "structured_data": {"duration_minutes": None, "equipment": [], "muscle_groups": [], "exercises": []},
+    "schema_status": "mapped",
+}
+
+CLEAN = {
+    "category": "Workouts",
+    "title": "Explosive bodyweight conditioning",
+    "summary": "Push-up and squat variations trained to failure for conditioning.",
+    "structured_data": {"duration_minutes": None, "equipment": [], "muscle_groups": ["chest", "legs"], "exercises": []},
+    "schema_status": "mapped",
+}
+
+
+def test_meta_language_triggers_corrective_retry(mock_anthropic):
+    mock_anthropic.messages.create.side_effect = [_make_response(HEDGED), _make_response(CLEAN)]
+    service = ClassificationService()
+    result = service.classify("Some muffled workout speech.")
+    assert result.summary == CLEAN["summary"]
+    assert mock_anthropic.messages.create.call_count == 2
+    retry_messages = mock_anthropic.messages.create.call_args.kwargs["messages"]
+    assert len(retry_messages) == 3
+    assert "described the input" in retry_messages[2]["content"]
+
+
+def test_meta_language_survives_retry_alerts_and_keeps_retry(mock_anthropic):
+    with patch("app.services.alerting.alert") as mock_alert:
+        mock_anthropic.messages.create.side_effect = [_make_response(HEDGED), _make_response(HEDGED)]
+        service = ClassificationService()
+        result = service.classify("Some muffled workout speech.")
+        assert result.summary == HEDGED["summary"]
+        mock_alert.assert_called_once()
+
+
+def test_clean_summary_does_not_retry(mock_anthropic):
+    mock_anthropic.messages.create.return_value = _make_response(CLEAN)
+    service = ClassificationService()
+    result = service.classify("Clear workout speech.")
+    assert mock_anthropic.messages.create.call_count == 1
+    assert result.summary == CLEAN["summary"]

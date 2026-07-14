@@ -157,6 +157,18 @@ useEffect(() => {
 
 ## Session Log (Newest First)
 
+### 2026-07-13 (save quality + perf)
+
+Pushed with this log: perf caching (1f62dd0: AsyncStorage library cache per user = instant cold open; video detail seeds from context) and four save-quality fixes in the classifier pipeline:
+- a2e5439: classify from transcript AND caption (was either/or — captions discarded whenever speech passed 20 chars)
+- 57f3de6: prompt bans meta-language ("the transcript appears to...") + post-parse hedge gate with one corrective retry + Discord alert if hedging survives; also instructs reconstruction of fragmented/non-native speech
+- db16628: completeness rule — structured_data must capture every concrete detail (summary short, structured_data exhaustive)
+- Option B in back pocket: swap retry model to Sonnet if Discord shows hedging surviving retries
+
+Positioning decided: ReelActions = wellness/productivity app (behavior change), not save-organizer. Pricing stays $12.99/$89.99; ~88% margin; judge after ~100 trials. Makes #9 (persist onboarding answers) strategic.
+
+NEXT SESSION: (1) re-save the recipe + broken-English workout test videos, verify quality; (2) Expo Go checklist (paste-save, duplicate+retry, optimistic actions, pull-refresh, sign-out no funnel); (3) flip BYPASS_PAYWALL=false, verify DEV_MODE/RESET_ONBOARDING false; (4) EAS build + TestFlight verify (task #15). Perf follow-ups parked: RC isSubscribed disk cache (kills cold-start HYDRATING wait), throttle home focus refresh 30s, expo-image for thumbs.
+
 ### 2026-07-11/12 (audit + fix marathon)
 
 **Full app audit run, 10-item fix list executed (all but two parked items).**

@@ -83,32 +83,38 @@ class ChatService:
             return "", []
 
     def _identify_relevant_chunks(self, message: str, chunks: list[dict]) -> list[dict]:
-        """Ask Haiku which chunks actually answer the query. Fallback to threshold on failure."""
+        """Ask Haiku which candidates actually answer the query, ranked, capped at 8.
+        Fallback to similarity threshold on failure."""
         if not chunks:
             return []
         chunk_list = "\n".join(
-            f'ID:{c["video_id"]} | {c["video_title"]} — {c["content"][:80]}'
+            f'ID:{c["video_id"]} | {c["video_title"]} | {c.get("category") or ""} | '
+            f'{(c.get("summary") or c["content"])[:150]}'
             for c in chunks
         )
         try:
             resp = self.client.messages.create(
                 model="claude-haiku-4-5-20251001",
-                max_tokens=150,
+                max_tokens=400,
                 messages=[{"role": "user", "content": (
                     f'Query: "{message}"\n\nVideos:\n{chunk_list}\n\n'
-                    "Which video IDs directly answer this query? "
-                    "Return ONLY a JSON array of ID strings, e.g. [\"id1\"]. Return [] if none are relevant."
+                    "Which videos are relevant to this query? Include indirect matches "
+                    "(e.g. a regional dish matches a query about that cuisine, an arm workout "
+                    "matches a query about upper body workouts). "
+                    "Return ONLY a JSON array of up to 8 ID strings, most relevant first, "
+                    "e.g. [\"id1\"]. Return [] if none are relevant."
                 )}],
             )
             raw = resp.content[0].text.strip()
             logger.info("[chat] relevance raw: %s", raw)
             match = re.search(r'\[.*?\]', raw, re.DOTALL)
-            ids = set(json.loads(match.group())) if match else set()
+            ids = json.loads(match.group()) if match else []
             logger.info("[chat] relevant ids: %s", ids)
-            return [c for c in chunks if str(c["video_id"]) in ids]
+            by_id = {str(c["video_id"]): c for c in chunks}
+            return [by_id[str(i)] for i in ids if str(i) in by_id][:8]
         except Exception as e:
             logger.warning("[chat] relevance check failed (%s), falling back to threshold", e)
-            return [c for c in chunks if c.get("similarity", 0) >= 0.55]
+            return [c for c in chunks if c.get("similarity", 0) >= 0.55][:8]
 
     def stream_response(
         self,
@@ -121,7 +127,7 @@ class ChatService:
             for kw in ["today", "this week", "last week", "recently", "when", "how many", "all my", "latest", "oldest"]
         )
 
-        chunks = self.embedder.search_similar(message, user_id, limit=5)
+        chunks = self.embedder.search_similar(message, user_id, limit=15)
 
         context_parts = [f"[{c['video_title']}]\n{c['content']}" for c in chunks]
         rag_context = "\n\n".join(context_parts) if context_parts else "No semantically relevant videos found."
@@ -133,13 +139,52 @@ class ChatService:
 
         full_context = f"Library Summary:\n{snapshot}\n\nRelevant content (semantic search):\n{rag_context}"
 
+        # Relevance candidates = semantic chunks + library summary videos.
+        # The model answers from both, so cards must be able to come from both.
+        # One candidate per video; chunks arrive ordered by similarity, so the
+        # first chunk seen for a video is its best one.
+        candidate_map: dict[str, dict] = {}
+        for c in chunks:
+            candidate_map.setdefault(str(c["video_id"]), c)
+        for v in recent_videos:
+            vid = str(v["id"])
+            if vid not in candidate_map:
+                candidate_map[vid] = {
+                    "video_id": vid,
+                    "video_title": v.get("title") or "Untitled",
+                    "content": v.get("category") or "",
+                    "similarity": 0,
+                    "video_url": v.get("url", ""),
+                    "thumbnail_url": v.get("thumbnail_url"),
+                }
+        # Enrich candidates with category + summary so the relevance check
+        # judges from more than a title and an 80-char chunk.
+        if candidate_map:
+            try:
+                rows = (
+                    get_db().table("videos")
+                    .select("id,category,summary")
+                    .in_("id", list(candidate_map.keys()))
+                    .execute()
+                )
+                meta = {str(r["id"]): r for r in rows.data}
+                for vid, c in candidate_map.items():
+                    m = meta.get(vid)
+                    if m:
+                        c["category"] = m.get("category")
+                        c["summary"] = m.get("summary")
+            except Exception as e:
+                logger.warning("[chat] candidate enrichment failed: %s", e)
+
+        candidates = list(candidate_map.values())
+
         # Kick off relevance check in background so it runs while text streams
         relevant_chunks: list[dict] = []
         relevance_thread: threading.Thread | None = None
         if not is_temporal:
             def _check() -> None:
                 nonlocal relevant_chunks
-                relevant_chunks = self._identify_relevant_chunks(message, chunks)
+                relevant_chunks = self._identify_relevant_chunks(message, candidates)
             relevance_thread = threading.Thread(target=_check, daemon=True)
             relevance_thread.start()
 

@@ -46,9 +46,9 @@ def _job_row(status: str, updated_seconds_ago: int, created_seconds_ago: int = 9
     }
 
 
-def test_silent_job_marked_failed_after_staleness_window(mock_db):
+def test_job_marked_failed_after_backstop_window(mock_db):
     result = MagicMock()
-    result.data = [_job_row("downloading", updated_seconds_ago=700)]
+    result.data = [_job_row("downloading", updated_seconds_ago=700, created_seconds_ago=7 * 3600)]
     mock_db.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = result
     response = client.get("/api/v1/jobs/job-1")
     assert response.json()["status"] == "failed"
@@ -62,11 +62,11 @@ def test_old_but_heartbeating_job_stays_alive(mock_db):
     assert response.json()["status"] == "transcribing"
 
 
-def test_staleness_falls_back_to_created_at(mock_db):
-    row = _job_row("pending", updated_seconds_ago=0, created_seconds_ago=700)
-    row["updated_at"] = None
+def test_pending_job_awaiting_retry_stays_alive(mock_db):
+    # A job silent for 700s is NOT failed anymore: the worker may have
+    # rescheduled it with a retry delay. Only the 6h backstop fails it.
     result = MagicMock()
-    result.data = [row]
+    result.data = [_job_row("pending", updated_seconds_ago=700, created_seconds_ago=900)]
     mock_db.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = result
     response = client.get("/api/v1/jobs/job-1")
-    assert response.json()["status"] == "failed"
+    assert response.json()["status"] == "pending"

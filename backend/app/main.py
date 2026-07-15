@@ -11,6 +11,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from app.api import videos, jobs, profile, chat, admin, push_tokens, admin_dashboard, webhooks, waitlist
 from app.workers.scheduler import run_streak_reminder, run_weekly_recap
+from app.workers.queue_worker import start_worker, stop_worker
 from app.services.alerting import alert
 from app.limiter import limiter
 from app.config import settings
@@ -41,7 +42,12 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(run_streak_reminder, CronTrigger(minute=0))
     scheduler.add_job(run_weekly_recap, CronTrigger(day_of_week="mon", hour=9, minute=0))
     scheduler.start()
+    # Production-only: tests and local dev share the prod database, and a
+    # worker started there would claim (steal) real users' jobs.
+    if settings.environment == "production":
+        start_worker()
     yield
+    stop_worker()
     scheduler.shutdown()
 
 
@@ -57,17 +63,26 @@ app.add_middleware(
 )
 
 
+_blocked_ips_cache: set[str] = set()
+_blocked_ips_fetched_at: float = 0.0
+
+
 @app.middleware("http")
 async def block_ips_middleware(request: Request, call_next):
+    global _blocked_ips_cache, _blocked_ips_fetched_at
     ip = request.client.host if request.client else None
     if ip:
-        try:
-            from app.database import get_db
-            result = get_db().table("blocked_ips").select("ip").eq("ip", ip).limit(1).execute()
-            if result.data:
-                return JSONResponse({"detail": "Forbidden"}, status_code=403)
-        except Exception:
-            pass
+        import time
+        if time.monotonic() - _blocked_ips_fetched_at > 60:
+            try:
+                from app.database import get_db
+                result = get_db().table("blocked_ips").select("ip").execute()
+                _blocked_ips_cache = {row["ip"] for row in result.data}
+                _blocked_ips_fetched_at = time.monotonic()
+            except Exception:
+                pass
+        if ip in _blocked_ips_cache:
+            return JSONResponse({"detail": "Forbidden"}, status_code=403)
     return await call_next(request)
 
 

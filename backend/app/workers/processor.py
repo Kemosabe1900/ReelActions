@@ -14,6 +14,16 @@ class ProcessingError(Exception):
     pass
 
 
+MAX_ATTEMPTS = 5
+RETRY_DELAYS_SECONDS = [120, 600, 1800, 7200]
+
+# Failures where retrying cannot help. Everything else is treated as
+# transient (provider blocking, timeouts, rate limits) and retried.
+PERMANENT_MARKERS = (
+    "No speech or caption found",
+)
+
+
 class VideoProcessor:
     def __init__(self):
         self._supabase = get_db()
@@ -38,6 +48,37 @@ class VideoProcessor:
             # Never resurrect a job the API already declared failed.
             query = query.neq("status", "failed")
         query.execute()
+
+    def _handle_failure(self, job_id: str, video_id: str, msg: str):
+        """Reschedule transient failures with backoff; fail permanently otherwise.
+        attempts was already incremented by claim_next_job() when the worker
+        claimed this job."""
+        from datetime import datetime, timezone, timedelta
+
+        row = (
+            self._supabase.table("processing_jobs")
+            .select("attempts").eq("id", job_id).limit(1).execute()
+        )
+        attempts = MAX_ATTEMPTS
+        if row.data and row.data[0].get("attempts"):
+            attempts = row.data[0]["attempts"]
+
+        permanent = any(marker in msg for marker in PERMANENT_MARKERS)
+        if not permanent and attempts < MAX_ATTEMPTS:
+            delay = RETRY_DELAYS_SECONDS[min(attempts - 1, len(RETRY_DELAYS_SECONDS) - 1)]
+            next_retry = datetime.now(timezone.utc) + timedelta(seconds=delay)
+            self._supabase.table("processing_jobs").update({
+                "status": "pending",
+                "error_message": msg,
+                "next_retry_at": next_retry.isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }).eq("id", job_id).execute()
+            print(f"[processor] job {job_id} attempt {attempts} failed ({msg}), retrying in {delay}s")
+            return
+
+        self._update_job(job_id, "failed", msg)
+        self._delete_video(video_id)
+        alert(f"Job {job_id} failed after {attempts} attempt(s): {msg}")
 
     def _check_url_cache(self, video_url: str) -> dict | None:
         result = (
@@ -175,34 +216,19 @@ class VideoProcessor:
             )
 
         except RuntimeError as e:
-            msg = f"Download failed: {str(e)}"
-            self._update_job(job_id, "failed", msg)
-            self._delete_video(video_id)
-            alert(f"Job {job_id} failed — {msg}")
+            self._handle_failure(job_id, video_id, f"Download failed: {str(e)}")
             raise ProcessingError(str(e))
         except TranscriptionError as e:
-            msg = f"Transcription failed: {str(e)}"
-            self._update_job(job_id, "failed", msg)
-            self._delete_video(video_id)
-            alert(f"Job {job_id} failed — {msg}")
+            self._handle_failure(job_id, video_id, f"Transcription failed: {str(e)}")
             raise ProcessingError(str(e))
         except ClassificationError as e:
-            msg = f"Classification failed: {str(e)}"
-            self._update_job(job_id, "failed", msg)
-            self._delete_video(video_id)
-            alert(f"Job {job_id} failed — {msg}")
+            self._handle_failure(job_id, video_id, f"Classification failed: {str(e)}")
             raise ProcessingError(str(e))
         except EmbeddingError as e:
-            msg = f"Embedding failed: {str(e)}"
-            self._update_job(job_id, "failed", msg)
-            self._delete_video(video_id)
-            alert(f"Job {job_id} failed — {msg}")
+            self._handle_failure(job_id, video_id, f"Embedding failed: {str(e)}")
             raise ProcessingError(str(e))
         except Exception as e:
-            msg = f"Unexpected error: {str(e)}"
-            self._update_job(job_id, "failed", msg)
-            self._delete_video(video_id)
-            alert(f"Job {job_id} failed — {msg}")
+            self._handle_failure(job_id, video_id, f"Unexpected error: {str(e)}")
             raise ProcessingError(str(e))
         finally:
             for path in (audio_path, video_path):

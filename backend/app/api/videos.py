@@ -1,10 +1,9 @@
 import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from app.dependencies import get_current_user
 from app.database import get_db
-from app.workers.processor import get_video_processor
 from app.limiter import limiter
 
 router = APIRouter(tags=["videos"])
@@ -21,10 +20,10 @@ class SubmitVideoResponse(BaseModel):
 
 @router.post("/videos", response_model=SubmitVideoResponse, status_code=202)
 @limiter.limit("20/hour")
+@limiter.limit("100/day")
 def submit_video(
     request: Request,
     body: SubmitVideoRequest,
-    background_tasks: BackgroundTasks,
     user_id: str = Depends(get_current_user),
 ):
     if not ("tiktok.com" in body.url or "instagram.com" in body.url):
@@ -44,11 +43,9 @@ def submit_video(
 
     db.table("videos").insert({"id": video_id, "user_id": user_id, "url": body.url}).execute()
     db.table("processing_jobs").insert({
-        "id": job_id, "user_id": user_id, "video_url": body.url, "status": "pending",
+        "id": job_id, "user_id": user_id, "video_url": body.url,
+        "video_id": video_id, "status": "pending",
     }).execute()
-
-    processor = get_video_processor()
-    background_tasks.add_task(processor.process_video, job_id, video_id, body.url, user_id)
 
     return SubmitVideoResponse(job_id=job_id, video_id=video_id)
 

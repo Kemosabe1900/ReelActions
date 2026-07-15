@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView,
   TextInput, Platform, Dimensions, Image,
@@ -7,6 +7,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useChat } from '@/contexts/ChatContext';
+import { useData } from '@/contexts/DataContext';
 import { colors, typography, spacing, radii } from '@/constants/theme';
 import { api, ChatMessage, ChatSource } from '@/services/api';
 
@@ -69,6 +70,37 @@ type Message = {
 
 export function ChatBottomSheet() {
   const { isOpen, closeChat } = useChat();
+  const { videos } = useData();
+
+  // Personalized suggestions: memory-jog chips built from real saves, so a
+  // tap always retrieves something. An older save demos "find what you
+  // forgot" better than this morning's. Generic chips only for an empty library.
+  const suggestedPrompts = useMemo(() => {
+    const titled = videos.filter(v => v.title);
+    if (titled.length === 0) return SUGGESTED_PROMPTS;
+
+    const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
+    const shortTitle = (t: string) => t.split(' ').slice(0, 5).join(' ');
+    const pick = (pool: typeof titled) => {
+      const old = pool.filter(v => new Date(v.created_at).getTime() < weekAgo);
+      return old[old.length - 1] ?? pool[0];
+    };
+
+    const first = pick(titled);
+    const otherCategory = titled.filter(v => v.id !== first.id && v.category !== first.category);
+    const second = otherCategory.length > 0
+      ? pick(otherCategory)
+      : titled.find(v => v.id !== first.id);
+
+    const chips = [
+      { prompt: `What was that ${shortTitle(first.title!)} video I saved?`, icon: 'sparkles-outline', color: '#f97316' },
+      ...(second
+        ? [{ prompt: `Find my save about ${shortTitle(second.title!)}`, icon: 'search-outline', color: '#22c55e' }]
+        : []),
+      { prompt: 'What did I save this week?', icon: 'calendar-outline', color: '#a855f7' },
+    ];
+    return chips;
+  }, [videos]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -281,7 +313,7 @@ export function ChatBottomSheet() {
                   <Text style={styles.emptyTitle}>Search your library</Text>
                   <Text style={styles.emptySubtitle}>Ask anything about your saved content</Text>
                   <View style={styles.prompts}>
-                    {SUGGESTED_PROMPTS.map(({ prompt, icon, color }) => (
+                    {suggestedPrompts.map(({ prompt, icon, color }) => (
                       <TouchableOpacity
                         key={prompt}
                         style={styles.promptChip}

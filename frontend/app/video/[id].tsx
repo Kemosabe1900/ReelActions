@@ -25,6 +25,23 @@ function SourceIcon({ url, size, color }: { url: string; size: number; color: st
   return <Ionicons name="open-outline" size={size} color={color} />;
 }
 
+// structured_data comes from the classifier and its shape evolves ahead of
+// app releases. Every leaf must go through toText: rendering a raw object
+// crashes React ("Objects are not valid as a React child", crashed build 34).
+function toText(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) return value.map(toText).filter(Boolean).join(', ');
+  if (typeof value === 'object') {
+    const o = value as Record<string, unknown>;
+    if ('item' in o) return [o.quantity, o.unit, o.item].map(toText).filter(Boolean).join(' ');
+    if ('name' in o) return toText(o.name);
+    return Object.values(o).map(toText).filter(Boolean).join(' ');
+  }
+  return '';
+}
+
 function StructuredData({ category, data }: { category: string | null; data: Record<string, unknown> | null }) {
   if (!data) return null;
 
@@ -36,8 +53,8 @@ function StructuredData({ category, data }: { category: string | null; data: Rec
       <View style={styles.structuredBlock}>
         <Text style={styles.blockLabel}>WORKOUT DETAILS</Text>
         {!!d.duration_minutes && <Row label="Duration" value={`${d.duration_minutes} min`} />}
-        {d.equipment?.length > 0 && <Row label="Equipment" value={d.equipment.join(', ')} />}
-        {d.muscle_groups?.length > 0 && <Row label="Muscles" value={d.muscle_groups.join(', ')} />}
+        {d.equipment?.length > 0 && <Row label="Equipment" value={toText(d.equipment)} />}
+        {d.muscle_groups?.length > 0 && <Row label="Muscles" value={toText(d.muscle_groups)} />}
         {d.exercises?.length > 0 && (
           <View style={styles.listBlock}>
             <Text style={styles.listTitle}>Exercises</Text>
@@ -45,9 +62,9 @@ function StructuredData({ category, data }: { category: string | null; data: Rec
               <View key={i} style={styles.listItem}>
                 <Text style={styles.listBullet}>•</Text>
                 <Text style={styles.listItemText}>
-                  {ex.name}
-                  {ex.sets ? ` — ${ex.sets} sets` : ''}
-                  {ex.reps ? ` × ${ex.reps} reps` : ''}
+                  {toText(ex.name) || toText(ex)}
+                  {ex.sets ? ` · ${toText(ex.sets)} sets` : ''}
+                  {ex.reps ? ` × ${toText(ex.reps)} reps` : ''}
                 </Text>
               </View>
             ))}
@@ -62,17 +79,17 @@ function StructuredData({ category, data }: { category: string | null; data: Rec
     return (
       <View style={styles.structuredBlock}>
         <Text style={styles.blockLabel}>RECIPE DETAILS</Text>
-        {d.cuisine && <Row label="Cuisine" value={d.cuisine} />}
+        {d.cuisine && <Row label="Cuisine" value={toText(d.cuisine)} />}
         {!!d.servings && <Row label="Servings" value={String(d.servings)} />}
         {!!d.prep_time_minutes && <Row label="Prep" value={`${d.prep_time_minutes} min`} />}
         {!!d.cook_time_minutes && <Row label="Cook" value={`${d.cook_time_minutes} min`} />}
         {d.ingredients?.length > 0 && (
           <View style={styles.listBlock}>
             <Text style={styles.listTitle}>Ingredients</Text>
-            {d.ingredients.map((ing: string, i: number) => (
+            {d.ingredients.map((ing: unknown, i: number) => (
               <View key={i} style={styles.listItem}>
                 <Text style={styles.listBullet}>•</Text>
-                <Text style={styles.listItemText}>{ing}</Text>
+                <Text style={styles.listItemText}>{toText(ing)}</Text>
               </View>
             ))}
           </View>
@@ -80,10 +97,10 @@ function StructuredData({ category, data }: { category: string | null; data: Rec
         {d.steps?.length > 0 && (
           <View style={styles.listBlock}>
             <Text style={styles.listTitle}>Steps</Text>
-            {d.steps.map((step: string, i: number) => (
+            {d.steps.map((step: unknown, i: number) => (
               <View key={i} style={styles.listItem}>
                 <Text style={styles.listBullet}>{i + 1}.</Text>
-                <Text style={styles.listItemText}>{step}</Text>
+                <Text style={styles.listItemText}>{toText(step)}</Text>
               </View>
             ))}
           </View>
@@ -97,15 +114,15 @@ function StructuredData({ category, data }: { category: string | null; data: Rec
     return (
       <View style={styles.structuredBlock}>
         <Text style={styles.blockLabel}>KEY TAKEAWAYS</Text>
-        {d.topic && <Row label="Topic" value={d.topic} />}
-        {d.risk_level && <Row label="Risk Level" value={d.risk_level} />}
+        {d.topic && <Row label="Topic" value={toText(d.topic)} />}
+        {d.risk_level && <Row label="Risk Level" value={toText(d.risk_level)} />}
         {d.key_concepts?.length > 0 && (
           <View style={styles.listBlock}>
             <Text style={styles.listTitle}>Key Concepts</Text>
-            {d.key_concepts.map((c: string, i: number) => (
+            {d.key_concepts.map((c: unknown, i: number) => (
               <View key={i} style={styles.listItem}>
                 <Text style={styles.listBullet}>•</Text>
-                <Text style={styles.listItemText}>{c}</Text>
+                <Text style={styles.listItemText}>{toText(c)}</Text>
               </View>
             ))}
           </View>
@@ -113,10 +130,10 @@ function StructuredData({ category, data }: { category: string | null; data: Rec
         {d.action_items?.length > 0 && (
           <View style={styles.listBlock}>
             <Text style={styles.listTitle}>Action Items</Text>
-            {d.action_items.map((a: string, i: number) => (
+            {d.action_items.map((a: unknown, i: number) => (
               <View key={i} style={styles.listItem}>
                 <Text style={styles.listBullet}>→</Text>
-                <Text style={styles.listItemText}>{a}</Text>
+                <Text style={styles.listItemText}>{toText(a)}</Text>
               </View>
             ))}
           </View>
@@ -135,10 +152,10 @@ function StructuredData({ category, data }: { category: string | null; data: Rec
       {d.key_concepts?.length > 0 && (
         <View style={styles.listBlock}>
           <Text style={styles.listTitle}>Key Concepts</Text>
-          {d.key_concepts.map((c: string, i: number) => (
+          {d.key_concepts.map((c: unknown, i: number) => (
             <View key={i} style={styles.listItem}>
               <Text style={styles.listBullet}>•</Text>
-              <Text style={styles.listItemText}>{c}</Text>
+              <Text style={styles.listItemText}>{toText(c)}</Text>
             </View>
           ))}
         </View>
@@ -146,10 +163,10 @@ function StructuredData({ category, data }: { category: string | null; data: Rec
       {d.action_items?.length > 0 && (
         <View style={styles.listBlock}>
           <Text style={styles.listTitle}>Action Items</Text>
-          {d.action_items.map((a: string, i: number) => (
+          {d.action_items.map((a: unknown, i: number) => (
             <View key={i} style={styles.listItem}>
               <Text style={styles.listBullet}>→</Text>
-              <Text style={styles.listItemText}>{a}</Text>
+              <Text style={styles.listItemText}>{toText(a)}</Text>
             </View>
           ))}
         </View>

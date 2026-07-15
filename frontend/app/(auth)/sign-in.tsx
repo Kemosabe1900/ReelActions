@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
+import * as Sentry from '@sentry/react-native';
 import { GoogleG } from '@/components/GoogleG';
 import { useAuth } from '@/contexts/AuthContext';
 import { colors, typography, spacing, radii } from '@/constants/theme';
@@ -56,6 +57,7 @@ export default function SignInScreen() {
     } catch (e: any) {
       if (e.code === 'ERR_CANCELED') return;
       if (isExpoGo) return;
+      Sentry.captureException(e, { tags: { flow: 'apple-sign-in' } });
       setError('Apple sign-in failed. Please use email below.');
     }
   };
@@ -67,6 +69,7 @@ export default function SignInScreen() {
     } catch (e: any) {
       if (e.code === 'SIGN_IN_CANCELLED' || e.code === '-5') return;
       if (isExpoGo) return;
+      Sentry.captureException(e, { tags: { flow: 'google-sign-in' } });
       setError('Google sign-in failed. Please use email below.');
     }
   };

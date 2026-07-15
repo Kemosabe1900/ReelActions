@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TextInput, ScrollView,
   TouchableOpacity, KeyboardAvoidingView, Platform,
@@ -19,7 +19,19 @@ import { colors, typography, spacing, radii } from '@/constants/theme';
 const isExpoGo = Constants.appOwnership === 'expo';
 
 export default function SignInScreen() {
-  const { signInWithEmail, signInWithApple, signInWithGoogle } = useAuth();
+  const { session, signInWithEmail, signInWithApple, signInWithGoogle } = useAuth();
+
+  // Pop this screen when a sign-in lands. Skip the mount run so a user who
+  // is already signed in (e.g. session restored from Keychain) can still
+  // view the screen; any NEW session while it's open means success.
+  const mounted = useRef(false);
+  useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true;
+      return;
+    }
+    if (session && router.canGoBack()) router.back();
+  }, [session]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

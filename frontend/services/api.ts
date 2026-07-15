@@ -61,9 +61,11 @@ export type Job = {
   id: string;
   user_id: string;
   video_url: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'downloading' | 'transcribing' | 'classifying' | 'embedding' | 'completed' | 'failed';
   error: string | null;
   created_at: string;
+  attempts?: number;
+  next_retry_at?: string | null;
 };
 
 export type SubmitVideoResponse = {

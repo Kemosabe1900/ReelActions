@@ -5,7 +5,7 @@ import { useAuth } from './AuthContext';
 
 const cacheKey = (userId: string) => `data_cache_${userId}`;
 
-export type PendingJob = { jobId: string; videoId: string; url: string; failed: boolean; createdAt: number; escalated: boolean; errorMessage?: string };
+export type PendingJob = { jobId: string; videoId: string; url: string; failed: boolean; createdAt: number; escalated: boolean; retrying?: boolean; errorMessage?: string };
 
 const ESCALATE_AFTER_MS = 150_000;
 
@@ -203,6 +203,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             refresh();
           } else if (status.status === 'failed') {
             setPendingJobs(prev => prev.map(j => j.jobId === job.jobId ? { ...j, failed: true } : j));
+          } else {
+            // Worker rescheduled this job (attempts increments per claim,
+            // next_retry_at set while waiting): surface honest delay copy.
+            const retrying = (status.attempts ?? 0) >= 2 || !!status.next_retry_at;
+            if (retrying) {
+              setPendingJobs(prev => prev.map(j =>
+                j.jobId === job.jobId && !j.retrying ? { ...j, retrying: true } : j
+              ));
+            }
           }
         } catch {}
       }

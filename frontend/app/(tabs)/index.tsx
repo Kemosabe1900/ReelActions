@@ -161,7 +161,7 @@ function SourceIcon({ url }: { url: string }) {
   return <Ionicons name="play-circle-outline" size={14} color={colors.onSurfaceVariant} />;
 }
 
-function SavingStrip({ count, escalated }: { count: number; escalated: boolean }) {
+function SavingStrip({ count, escalated, retrying }: { count: number; escalated: boolean; retrying: boolean }) {
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -172,9 +172,11 @@ function SavingStrip({ count, escalated }: { count: number; escalated: boolean }
     <Animated.View style={[styles.savingStrip, { opacity: anim, transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }]}>
       <ActivityIndicator size="small" color={colors.primary} />
       <Text style={styles.savingStripText}>
-        {escalated
-          ? "Still saving... We'll notify you when it's ready."
-          : count === 1 ? 'Saving video...' : `Saving ${count} videos...`}
+        {retrying
+          ? "Instagram is being slow. We'll keep trying and notify you when it's ready."
+          : escalated
+            ? "Still saving... We'll notify you when it's ready."
+            : count === 1 ? 'Saving video...' : `Saving ${count} videos...`}
       </Text>
     </Animated.View>
   );
@@ -375,7 +377,7 @@ export default function HomeScreen() {
         </View>
 
         {activeJobs.length > 0 && (
-          <SavingStrip count={activeJobs.length} escalated={activeJobs.some(j => j.escalated)} />
+          <SavingStrip count={activeJobs.length} escalated={activeJobs.some(j => j.escalated)} retrying={activeJobs.some(j => j.retrying)} />
         )}
 
         {(failedJobs.length > 0 || recent.length > 0) && (

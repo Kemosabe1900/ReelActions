@@ -173,11 +173,34 @@ function SavingStrip({ count, escalated, retrying }: { count: number; escalated:
       <ActivityIndicator size="small" color={colors.primary} />
       <Text style={styles.savingStripText}>
         {retrying
-          ? "Instagram is being slow. We'll keep trying and notify you when it's ready."
+          ? "This save is taking a while. We'll keep trying and notify you when it's ready."
           : escalated
             ? "Still saving... We'll notify you when it's ready."
             : count === 1 ? 'Saving video...' : `Saving ${count} videos...`}
       </Text>
+    </Animated.View>
+  );
+}
+
+function FailedStrip({ count, onRetry, onDismiss }: { count: number; onRetry: () => void; onDismiss: () => void }) {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(anim, { toValue: 1, duration: 220, useNativeDriver: false }).start();
+  }, []);
+
+  return (
+    <Animated.View style={[styles.savingStrip, { opacity: anim, transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }]}>
+      <Ionicons name="alert-circle" size={16} color={colors.error} />
+      <Text style={[styles.savingStripText, { flex: 1 }]}>
+        {count === 1 ? 'Save failed' : `${count} saves failed`}
+      </Text>
+      <TouchableOpacity onPress={onRetry} hitSlop={14}>
+        <Ionicons name="refresh" size={18} color={colors.primary} />
+      </TouchableOpacity>
+      <TouchableOpacity onPress={onDismiss} hitSlop={14}>
+        <Ionicons name="close" size={18} color={colors.onSurfaceVariant} />
+      </TouchableOpacity>
     </Animated.View>
   );
 }
@@ -380,34 +403,18 @@ export default function HomeScreen() {
           <SavingStrip count={activeJobs.length} escalated={activeJobs.some(j => j.escalated)} retrying={activeJobs.some(j => j.retrying)} />
         )}
 
-        {(failedJobs.length > 0 || recent.length > 0) && (
+        {failedJobs.length > 0 && (
+          <FailedStrip
+            count={failedJobs.length}
+            onRetry={() => failedJobs.forEach(j => retryJob(j.jobId))}
+            onDismiss={() => failedJobs.forEach(j => removePendingJob(j.jobId))}
+          />
+        )}
+
+        {recent.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Recent Saves</Text>
             <View style={styles.saveList}>
-              {failedJobs.map((job, idx) => (
-                <View key={job.jobId}>
-                  <View style={styles.saveItem}>
-                    <View style={styles.saveItemInner}>
-                    <View style={styles.thumbnail}>
-                      <Ionicons name="alert-circle-outline" size={22} color={colors.error} />
-                    </View>
-                    <View style={styles.cardContent}>
-                      <Text style={styles.saveTitle}>Save failed</Text>
-                      <Text style={styles.saveMeta} numberOfLines={2}>
-                        {job.errorMessage ?? 'Something went wrong. Please try again.'}
-                      </Text>
-                    </View>
-                    <TouchableOpacity style={styles.retryBtn} onPress={() => retryJob(job.jobId)} hitSlop={8}>
-                      <Text style={styles.retryBtnText}>Retry</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity hitSlop={12} onPress={() => removePendingJob(job.jobId)}>
-                      <Ionicons name="close" size={20} color={colors.onSurfaceVariant} />
-                    </TouchableOpacity>
-                    </View>
-                  </View>
-                  {(idx < failedJobs.length - 1 || recent.length > 0) && <View style={styles.separator} />}
-                </View>
-              ))}
               {recent.map((save, idx) => (
                 <View key={save.id}>
                   <SaveItem
@@ -629,17 +636,6 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.onSurfaceVariant,
     fontFamily: 'HankenGrotesk_400Regular',
-  },
-  retryBtn: {
-    backgroundColor: colors.primary + '18',
-    borderRadius: radii.full,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  retryBtnText: {
-    ...typography.bodySm,
-    color: colors.primary,
-    fontFamily: 'HankenGrotesk_700Bold',
   },
   section: {
     gap: spacing.elementTight,

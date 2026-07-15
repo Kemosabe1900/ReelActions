@@ -87,10 +87,7 @@ def download_instagram_audio(url: str, job_id: str) -> tuple[str, str, str | Non
         post = _try_fallback_actor(url, headers)
         if post is None:
             logger.error("[instagram_apify] giving up after retry + fallback: %s", last_error or "empty dataset")
-            raise RuntimeError(
-                "Instagram wouldn't let us download this video. "
-                "It may be private, or Instagram is temporarily blocking downloads. Try again later."
-            )
+            raise RuntimeError(f"Apify primary + fallback blocked or empty: {last_error or 'empty dataset'}")
     video_url = post.get("downloadedVideo") or post.get("videoUrl")
     if not video_url:
         raise RuntimeError("No video URL in Apify response")

@@ -49,10 +49,11 @@ class VideoProcessor:
             query = query.neq("status", "failed")
         query.execute()
 
-    def _handle_failure(self, job_id: str, video_id: str, msg: str):
+    def _handle_failure(self, job_id: str, video_id: str, technical: str, user_msg: str):
         """Reschedule transient failures with backoff; fail permanently otherwise.
-        attempts was already incremented by claim_next_job() when the worker
-        claimed this job."""
+        error_message stores user-facing copy only; the technical detail goes
+        to logs and Discord. attempts was already incremented by
+        claim_next_job() when the worker claimed this job."""
         from datetime import datetime, timezone, timedelta
 
         row = (
@@ -63,22 +64,24 @@ class VideoProcessor:
         if row.data and row.data[0].get("attempts"):
             attempts = row.data[0]["attempts"]
 
-        permanent = any(marker in msg for marker in PERMANENT_MARKERS)
+        permanent = any(marker in technical for marker in PERMANENT_MARKERS)
+        if permanent:
+            user_msg = "No speech or caption was found in this video, so there's nothing to save."
         if not permanent and attempts < MAX_ATTEMPTS:
             delay = RETRY_DELAYS_SECONDS[min(attempts - 1, len(RETRY_DELAYS_SECONDS) - 1)]
             next_retry = datetime.now(timezone.utc) + timedelta(seconds=delay)
             self._supabase.table("processing_jobs").update({
                 "status": "pending",
-                "error_message": msg,
+                "error_message": user_msg,
                 "next_retry_at": next_retry.isoformat(),
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }).eq("id", job_id).execute()
-            print(f"[processor] job {job_id} attempt {attempts} failed ({msg}), retrying in {delay}s")
+            print(f"[processor] job {job_id} attempt {attempts} failed ({technical}), retrying in {delay}s")
             return
 
-        self._update_job(job_id, "failed", msg)
+        self._update_job(job_id, "failed", user_msg)
         self._delete_video(video_id)
-        alert(f"Job {job_id} failed after {attempts} attempt(s): {msg}")
+        alert(f"Job {job_id} failed after {attempts} attempt(s): {technical}")
 
     def _check_url_cache(self, video_url: str) -> dict | None:
         result = (
@@ -175,7 +178,7 @@ class VideoProcessor:
                     sections.append(f"Caption:\n{caption}")
                 classify_text = "\n\n".join(sections) or None
                 if not classify_text:
-                    raise RuntimeError("No speech or caption found in this video — cannot classify")
+                    raise RuntimeError("No speech or caption found in this video, cannot classify")
 
                 update_data: dict = {"transcript": transcript_text or caption}
                 if thumbnail_url:
@@ -216,19 +219,34 @@ class VideoProcessor:
             )
 
         except RuntimeError as e:
-            self._handle_failure(job_id, video_id, f"Download failed: {str(e)}")
+            self._handle_failure(
+                job_id, video_id, f"Download failed: {str(e)}",
+                "This video couldn't be saved. It may be private or unavailable. Try again later.",
+            )
             raise ProcessingError(str(e))
         except TranscriptionError as e:
-            self._handle_failure(job_id, video_id, f"Transcription failed: {str(e)}")
+            self._handle_failure(
+                job_id, video_id, f"Transcription failed: {str(e)}",
+                "We couldn't process this video. Please try again.",
+            )
             raise ProcessingError(str(e))
         except ClassificationError as e:
-            self._handle_failure(job_id, video_id, f"Classification failed: {str(e)}")
+            self._handle_failure(
+                job_id, video_id, f"Classification failed: {str(e)}",
+                "We couldn't process this video. Please try again.",
+            )
             raise ProcessingError(str(e))
         except EmbeddingError as e:
-            self._handle_failure(job_id, video_id, f"Embedding failed: {str(e)}")
+            self._handle_failure(
+                job_id, video_id, f"Embedding failed: {str(e)}",
+                "We couldn't process this video. Please try again.",
+            )
             raise ProcessingError(str(e))
         except Exception as e:
-            self._handle_failure(job_id, video_id, f"Unexpected error: {str(e)}")
+            self._handle_failure(
+                job_id, video_id, f"Unexpected error: {str(e)}",
+                "Something went wrong saving this video. Please try again.",
+            )
             raise ProcessingError(str(e))
         finally:
             for path in (audio_path, video_path):

@@ -29,10 +29,10 @@ def _process(job: dict) -> None:
     from app.workers.processor import get_video_processor, ProcessingError, MAX_ATTEMPTS
 
     if job["attempts"] > MAX_ATTEMPTS:
-        _fail_job(job, "Processing failed after multiple attempts.")
+        _fail_job(job, "This save didn't go through. Please try again.")
         return
     if not job.get("video_id"):
-        _fail_job(job, "Processing failed. Please try saving again.")
+        _fail_job(job, "This save didn't go through. Please try again.")
         return
     try:
         get_video_processor().process_video(

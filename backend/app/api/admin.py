@@ -1,14 +1,16 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from app.dependencies import get_current_user
 from app.database import get_db
 from app.services.embedder import get_embedding_service
 from app.services.classifier import get_classification_service
+from app.limiter import limiter
 
 router = APIRouter(tags=["admin"])
 
 
 @router.post("/admin/reembed")
-def reembed_all(user_id: str = Depends(get_current_user)):
+@limiter.limit("3/hour")
+def reembed_all(request: Request, user_id: str = Depends(get_current_user)):
     db = get_db()
     embedder = get_embedding_service()
 
@@ -42,7 +44,8 @@ def reembed_all(user_id: str = Depends(get_current_user)):
 
 
 @router.post("/admin/reclassify")
-def reclassify_all(user_id: str = Depends(get_current_user)):
+@limiter.limit("3/hour")
+def reclassify_all(request: Request, user_id: str = Depends(get_current_user)):
     db = get_db()
     classifier = get_classification_service()
     embedder = get_embedding_service()

@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, EmailStr
 from app.database import get_db
+from app.limiter import limiter
 
 router = APIRouter()
 
@@ -10,7 +11,8 @@ class WaitlistRequest(BaseModel):
 
 
 @router.post("/waitlist", status_code=201)
-def join_waitlist(body: WaitlistRequest):
+@limiter.limit("5/hour")
+def join_waitlist(request: Request, body: WaitlistRequest):
     db = get_db()
     existing = db.table("waitlist").select("id").eq("email", body.email).limit(1).execute()
     if existing.data:

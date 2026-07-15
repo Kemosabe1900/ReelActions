@@ -22,6 +22,7 @@ class ChatRequest(BaseModel):
 
 @router.post("/chat")
 @limiter.limit("30/hour")
+@limiter.limit("200/day")
 def chat(
     request: Request,
     body: ChatRequest,

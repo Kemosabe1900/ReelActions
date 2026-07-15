@@ -1,12 +1,18 @@
 import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Purchases, { CustomerInfo, PurchasesPackage } from 'react-native-purchases';
 import * as Sentry from '@sentry/react-native';
 import { REVENUECAT_API_KEY_IOS, REVENUECAT_API_KEY_ANDROID, DEV_MODE } from '@/constants/config';
 import { api } from '@/services/api';
 
 const IS_EXPO_GO = Constants.appOwnership === 'expo';
+const SUB_CACHE_KEY = 'rc_subscribed_cache';
+
+function cacheSubscribed(active: boolean) {
+  AsyncStorage.setItem(SUB_CACHE_KEY, active ? 'true' : 'false').catch(() => {});
+}
 
 type PurchasesContextValue = {
   isSubscribed: boolean;
@@ -24,10 +30,24 @@ export function PurchasesProvider({ children, userId }: { children: ReactNode; u
   const [loading, setLoading] = useState(true);
   const configured = useRef(false);
   const lastUserId = useRef<string | undefined>(undefined);
+  const bootedFromCache = useRef(false);
 
   useEffect(() => {
     (async () => {
       if (DEV_MODE || IS_EXPO_GO) { setLoading(false); return; }
+
+      // Boot instantly from the last known subscription status so cold open
+      // isn't gated on a RevenueCat network round-trip. checkSubscription()
+      // still runs below and corrects the state if it changed.
+      if (!bootedFromCache.current) {
+        bootedFromCache.current = true;
+        try {
+          if (await AsyncStorage.getItem(SUB_CACHE_KEY) === 'true') {
+            setIsSubscribed(true);
+            setLoading(false);
+          }
+        } catch {}
+      }
 
       if (!configured.current) {
         const apiKey = Platform.OS === 'ios' ? REVENUECAT_API_KEY_IOS : REVENUECAT_API_KEY_ANDROID;
@@ -51,6 +71,7 @@ export function PurchasesProvider({ children, userId }: { children: ReactNode; u
         } else if (lastUserId.current) {
           try { await Purchases.logOut(); } catch {}
           setIsSubscribed(false);
+          cacheSubscribed(false);
         }
         lastUserId.current = userId;
       }
@@ -76,21 +97,21 @@ export function PurchasesProvider({ children, userId }: { children: ReactNode; u
   }
 
   async function checkSubscription() {
+    // null = couldn't reach either source; keep whatever we booted with
+    // rather than kicking a possibly-subscribed user over a network blip.
+    let active: boolean | null = null;
     try {
-      const info = await Purchases.getCustomerInfo();
-      if (isActive(info)) {
-        setIsSubscribed(true);
-        setLoading(false);
-        return;
-      }
+      active = isActive(await Purchases.getCustomerInfo());
     } catch {}
-    if (userId) {
+    if (active !== true && userId) {
       try {
         const profile = await api.profile.get();
-        if (profile.subscription_status === 'active') {
-          setIsSubscribed(true);
-        }
+        active = profile.subscription_status === 'active';
       } catch {}
+    }
+    if (active !== null) {
+      setIsSubscribed(active);
+      cacheSubscribed(active);
     }
     setLoading(false);
   }
@@ -101,13 +122,16 @@ export function PurchasesProvider({ children, userId }: { children: ReactNode; u
 
   async function purchase(pkg: PurchasesPackage) {
     const { customerInfo } = await Purchases.purchasePackage(pkg);
-    setIsSubscribed(isActive(customerInfo));
+    const active = isActive(customerInfo);
+    setIsSubscribed(active);
+    cacheSubscribed(active);
   }
 
   async function restore(): Promise<boolean> {
     const info = await Purchases.restorePurchases();
     const active = isActive(info);
     setIsSubscribed(active);
+    cacheSubscribed(active);
     return active;
   }
 

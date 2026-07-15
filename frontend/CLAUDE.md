@@ -157,6 +157,12 @@ useEffect(() => {
 
 ## Session Log (Newest First)
 
+### 2026-07-14 (security + queue + chat)
+
+Pushed 7 commits (dd500af..): security batch (per-user rate limit keying by JWT sub, --proxy-headers in railpack/Procfile — limits were ONE shared bucket for all users behind Railway proxy; daily caps saves 100/chat 200; waitlist 5/hr IP; admin 3/hr; RC webhook fails closed in prod; blocked-IP 60s cache), durable job queue #11 (migration 008 RUN in Supabase: claim_next_job() SKIP LOCKED + 20min stale reclaim; worker thread in lifespan production-only; transient failures retry 2m/10m/30m/2h x5 then final fail + Discord; poll endpoint 6h backstop only), Apify fix (IG blocking reel-scraper systemically — public reels return no_items error items; retry once + fallback to apify/instagram-scraper), chat cards fix (summary videos join card pool; retrieval 5→15 chunks deduped per video, candidates enriched w/ category+summary, relevance returns ≤8 ranked, indirect matches allowed), personalized memory-jog chips from real save titles (ChatBottomSheet), RC subscription AsyncStorage cache (instant cold open, background verify).
+
+Railway checks done: ENVIRONMENT=production, REVENUECAT_WEBHOOK_SECRET set, ADMIN_SECRET set. BYPASS_PAYWALL=true still uncommitted for Expo Go. Pre-existing test failures (8: profile/videos/chat_service) still parked. V2 idea noted: "What should I try today?" chip needs backend tried/untried support.
+
 ### 2026-07-13 (save quality + perf)
 
 Pushed with this log: perf caching (1f62dd0: AsyncStorage library cache per user = instant cold open; video detail seeds from context) and four save-quality fixes in the classifier pipeline:

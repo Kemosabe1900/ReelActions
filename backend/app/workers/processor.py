@@ -49,7 +49,7 @@ class VideoProcessor:
             query = query.neq("status", "failed")
         query.execute()
 
-    def _handle_failure(self, job_id: str, video_id: str, technical: str, user_msg: str):
+    def _handle_failure(self, job_id: str, video_id: str, technical: str, user_msg: str, user_id: str | None = None):
         """Reschedule transient failures with backoff; fail permanently otherwise.
         error_message stores user-facing copy only; the technical detail goes
         to logs and Discord. attempts was already incremented by
@@ -82,6 +82,13 @@ class VideoProcessor:
         self._update_job(job_id, "failed", user_msg)
         self._delete_video(video_id)
         alert(f"Job {job_id} failed after {attempts} attempt(s): {technical}")
+        if user_id:
+            notify_user(
+                user_id,
+                title="A save didn't go through",
+                body=user_msg,
+                data={},
+            )
 
     def _check_url_cache(self, video_url: str) -> dict | None:
         result = (
@@ -222,30 +229,35 @@ class VideoProcessor:
             self._handle_failure(
                 job_id, video_id, f"Download failed: {str(e)}",
                 "This video couldn't be saved. It may be private or unavailable. Try again later.",
+                user_id,
             )
             raise ProcessingError(str(e))
         except TranscriptionError as e:
             self._handle_failure(
                 job_id, video_id, f"Transcription failed: {str(e)}",
                 "We couldn't process this video. Please try again.",
+                user_id,
             )
             raise ProcessingError(str(e))
         except ClassificationError as e:
             self._handle_failure(
                 job_id, video_id, f"Classification failed: {str(e)}",
                 "We couldn't process this video. Please try again.",
+                user_id,
             )
             raise ProcessingError(str(e))
         except EmbeddingError as e:
             self._handle_failure(
                 job_id, video_id, f"Embedding failed: {str(e)}",
                 "We couldn't process this video. Please try again.",
+                user_id,
             )
             raise ProcessingError(str(e))
         except Exception as e:
             self._handle_failure(
                 job_id, video_id, f"Unexpected error: {str(e)}",
                 "Something went wrong saving this video. Please try again.",
+                user_id,
             )
             raise ProcessingError(str(e))
         finally:

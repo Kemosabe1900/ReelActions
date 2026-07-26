@@ -34,7 +34,6 @@ def test_classify_returns_classification_result(mock_anthropic):
     result = service.classify("Today we make pasta. Add sauce. Done.")
     assert isinstance(result, ClassificationResult)
     assert result.category == "Recipes"
-    assert result.schema_status == "mapped"
     assert result.structured_data["cuisine"] == "Italian"
 
 
@@ -51,7 +50,6 @@ def test_classify_generic_schema_for_unknown_category(mock_anthropic):
     })
     service = ClassificationService()
     result = service.classify("Today we learn to center clay on the wheel.")
-    assert result.schema_status == "pending_review"
     assert "key_concepts" in result.structured_data
 
 

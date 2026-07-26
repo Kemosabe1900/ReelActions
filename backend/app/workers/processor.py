@@ -93,7 +93,7 @@ class VideoProcessor:
     def _check_url_cache(self, video_url: str) -> dict | None:
         result = (
             self._supabase.table("videos")
-            .select("transcript,structured_data,category,title,summary,schema_status")
+            .select("transcript,structured_data,category,title,summary")
             .eq("url", video_url)
             .limit(1)
             .execute()
@@ -124,7 +124,6 @@ class VideoProcessor:
                     "title": cached["title"],
                     "summary": cached["summary"],
                     "structured_data": cached["structured_data"],
-                    "schema_status": cached["schema_status"],
                 }).eq("id", video_id).execute()
                 self._update_job(job_id, "embedding")
                 self.embedder.embed_and_store(video_id, cached["transcript"], user_id, title=cached.get("title"), category=cached.get("category"))
@@ -154,7 +153,6 @@ class VideoProcessor:
                     "title": classification.title,
                     "summary": classification.summary,
                     "structured_data": classification.structured_data,
-                    "schema_status": classification.schema_status,
                 }).eq("id", video_id).execute()
 
                 embed_text = f"{classification.title}\n\n{classification.summary}"
@@ -205,7 +203,6 @@ class VideoProcessor:
                     "title": classification.title,
                     "summary": classification.summary,
                     "structured_data": classification.structured_data,
-                    "schema_status": classification.schema_status,
                 }).eq("id", video_id).execute()
 
                 self._update_job(job_id, "embedding")

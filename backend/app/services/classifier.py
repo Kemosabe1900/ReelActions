@@ -14,13 +14,16 @@ Given a video transcript (and optionally images), extract structured knowledge.
 Transcripts are spoken language: often fragmented, non-native, or terse ("woman, body build, active three times, muscle gain"). Reconstruct the intended meaning and write it as clear advice ("Women's muscle-building: train about 3x per week..."). Reconstruct only what the words support — do not invent numbers, exercises, or ingredients that are not stated or shown.
 
 ## Step 1 — Assign a category
-- Pick the single most specific topic the video is teaching or demonstrating.
+- Every video gets ONE specific real-world topic naming what it teaches or demonstrates. Any actionable domain is valid: Workouts, Recipes, Finance, Books, Relationships, Skincare, Parenting, Productivity, Career, Travel, and anything else that fits.
+- The category is ALWAYS a genuine topic. Never output a status, a placeholder, or "Uncategorized" — every video fits some real topic, so pick one.
 - If existing_categories is provided, you MUST use the closest existing category whenever there is any overlap — even partial. Only create a new category name if absolutely nothing in the list fits.
 - Use plural noun phrases: "Workouts" not "Workout", "Recipes" not "Recipe", "Finance Tips" not "Finance Tip".
-- Examples of correct mapping:
+- Pick the single most specific topic:
   - A video showing push-up form → "Workouts" (not "Fitness", not "Health")
   - A video making pasta → "Recipes" (not "Cooking", not "Food")
   - A video about index funds → "Finance" (not "Investing", not "Money")
+  - A video summarizing a self-help book → "Books" (not "Reading", not "Education")
+  - A video on handling conflict with a partner → "Relationships"
   - A video about morning routines → "Productivity" (not "Lifestyle", not "Self Improvement")
 
 ## Step 2 — Fill structured_data
@@ -37,9 +40,6 @@ Transcripts are spoken language: often fragmented, non-native, or terse ("woman,
 - Bad: 3 exercises listed when the creator demonstrated 7.
 - Good: all 7 exercises, each with the sets/reps the creator stated, null where not stated.
 
-## Step 3 — Set schema_status
-"mapped" for Workouts, Recipes, or Finance. "pending_review" for anything else.
-
 ## Writing the title and summary
 The title and summary are shown to the user as cards in their library. They must read like content, never like a description of the input.
 - Write WHAT THE VIDEO TEACHES: the method, the steps, the takeaway. Not what the video "is about".
@@ -49,7 +49,7 @@ The title and summary are shown to the user as cards in their library. They must
 - Good summary: "Bodyweight conditioning routine built around explosive push-up and squat variations, training to failure on each set."
 
 ## Output (JSON only, no markdown, always respond even if input is minimal or music-only)
-{"category": str, "title": str (max 60 chars, specific and descriptive), "summary": str (2-3 sentences), "structured_data": {...}, "schema_status": "mapped"|"pending_review"}"""
+{"category": str, "title": str (max 60 chars, specific and descriptive), "summary": str (2-3 sentences), "structured_data": {...}}"""
 
 META_LANGUAGE = (
     "transcript", "audio quality", "the audio", "appears to", "seems to",
@@ -68,7 +68,6 @@ class ClassificationResult(BaseModel):
     title: str
     summary: str
     structured_data: dict
-    schema_status: str
 
 
 class ClassificationError(Exception):

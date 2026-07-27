@@ -27,6 +27,8 @@ type AuthContextValue = {
   session: Session | null;
   loading: boolean;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
+  verifySignupOtp: (email: string, token: string) => Promise<void>;
+  resendSignupOtp: (email: string) => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signInWithApple: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -55,9 +57,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUpWithEmail = async (email: string, password: string) => {
+    // With email confirmation on, signUp returns no session; the caller then
+    // collects the emailed code and calls verifySignupOtp. If confirmation is
+    // off, a session comes back here and onAuthStateChange signs the user in.
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
     if (data.session) setSession(data.session);
+  };
+
+  const verifySignupOtp = async (email: string, token: string) => {
+    const { error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' });
+    if (error) throw error;
+  };
+
+  const resendSignupOtp = async (email: string) => {
+    const { error } = await supabase.auth.resend({ type: 'signup', email });
+    if (error) throw error;
   };
 
   const signInWithEmail = async (email: string, password: string) => {
@@ -100,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, loading, signUpWithEmail, signInWithEmail, signInWithApple, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ session, loading, signUpWithEmail, verifySignupOtp, resendSignupOtp, signInWithEmail, signInWithApple, signInWithGoogle, signOut }}>
       {children}
     </AuthContext.Provider>
   );

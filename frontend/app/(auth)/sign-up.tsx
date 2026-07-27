@@ -18,9 +18,11 @@ import { colors, typography, spacing, radii } from '@/constants/theme';
 const isExpoGo = Constants.appOwnership === 'expo';
 
 export default function SignUpScreen() {
-  const { signUpWithEmail, signInWithApple, signInWithGoogle } = useAuth();
+  const { signUpWithEmail, verifySignupOtp, resendSignupOtp, signInWithApple, signInWithGoogle } = useAuth();
+  const [step, setStep] = useState<'form' | 'code'>('form');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +36,8 @@ export default function SignUpScreen() {
     setLoading(true);
     try {
       await signUpWithEmail(email.trim(), password);
+      setCode('');
+      setStep('code');
     } catch (e: any) {
       const msg: string = e.message ?? '';
       if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already exists')) {
@@ -45,6 +49,32 @@ export default function SignUpScreen() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerify = async () => {
+    if (code.trim().length < 6) {
+      setError('Enter the code from your email.');
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    try {
+      await verifySignupOtp(email.trim(), code.trim());
+      // Success sets the session; the state machine drives navigation.
+    } catch {
+      setError('Invalid or expired code. Request a new one.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setError(null);
+    try {
+      await resendSignupOtp(email.trim());
+    } catch {
+      setError("Couldn't resend the code. Try again.");
     }
   };
 
@@ -86,84 +116,128 @@ export default function SignUpScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.headline}>Turn passive scrolling{'\n'}into active achievements.</Text>
+          {step === 'form' ? (
+            <>
+              <Text style={styles.headline}>Turn passive scrolling{'\n'}into active achievements.</Text>
 
-          <View style={styles.oauthGroup}>
-            {Platform.OS === 'ios' && (
-              <TouchableOpacity style={styles.appleButton} onPress={handleApple} activeOpacity={0.8}>
-                <Ionicons name="logo-apple" size={20} color="#000000" />
-                <Text style={styles.appleText}>Sign up with Apple</Text>
+              <View style={styles.oauthGroup}>
+                {Platform.OS === 'ios' && (
+                  <TouchableOpacity style={styles.appleButton} onPress={handleApple} activeOpacity={0.8}>
+                    <Ionicons name="logo-apple" size={20} color="#000000" />
+                    <Text style={styles.appleText}>Sign up with Apple</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={styles.googleButton} onPress={handleGoogle} activeOpacity={0.8}>
+                  <GoogleG size={20} />
+                  <Text style={styles.googleText}>Sign up with Google</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerLabel}>OR EMAIL</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              <View style={styles.form}>
+                <View style={styles.inputRow}>
+                  <Ionicons name="mail-outline" size={18} color={colors.onSurfaceVariant} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    placeholderTextColor={colors.onSurfaceVariant}
+                    placeholder="Email address"
+                  />
+                </View>
+
+                <View style={styles.inputRow}>
+                  <Ionicons name="lock-closed-outline" size={18} color={colors.onSurfaceVariant} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { flex: 1 }]}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    autoComplete="new-password"
+                    placeholderTextColor={colors.onSurfaceVariant}
+                    placeholder="Password"
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.eyeButton}>
+                    <Ionicons
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={18}
+                      color={colors.onSurfaceVariant}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {error && <Text style={styles.error}>{error}</Text>}
+
+              <TouchableOpacity style={styles.cta} onPress={handleEmail} disabled={loading} activeOpacity={0.8}>
+                {loading
+                  ? <ActivityIndicator color={colors.onPrimary} />
+                  : <Text style={styles.ctaText}>Sign Up</Text>
+                }
               </TouchableOpacity>
-            )}
-            <TouchableOpacity style={styles.googleButton} onPress={handleGoogle} activeOpacity={0.8}>
-              <GoogleG size={20} />
-              <Text style={styles.googleText}>Sign up with Google</Text>
-            </TouchableOpacity>
-          </View>
 
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerLabel}>OR EMAIL</Text>
-            <View style={styles.dividerLine} />
-          </View>
+              <Text style={styles.terms}>
+                By continuing you agree to our{' '}
+                <Text style={styles.link} onPress={() => Linking.openURL(TERMS_URL)}>Terms</Text> and{' '}
+                <Text style={styles.link} onPress={() => Linking.openURL(PRIVACY_URL)}>Privacy Policy</Text>
+              </Text>
 
-          <View style={styles.form}>
-            <View style={styles.inputRow}>
-              <Ionicons name="mail-outline" size={18} color={colors.onSurfaceVariant} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
-                placeholderTextColor={colors.onSurfaceVariant}
-                placeholder="Email address"
-              />
-            </View>
-
-            <View style={styles.inputRow}>
-              <Ionicons name="lock-closed-outline" size={18} color={colors.onSurfaceVariant} style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoComplete="new-password"
-                placeholderTextColor={colors.onSurfaceVariant}
-                placeholder="Password"
-              />
-              <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.eyeButton}>
-                <Ionicons
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={18}
-                  color={colors.onSurfaceVariant}
-                />
+              <TouchableOpacity style={styles.switchRow} onPress={() => router.push('/sign-in')}>
+                <Text style={styles.switchText}>
+                  Already have an account?{' '}
+                  <Text style={styles.switchLink}>Sign In</Text>
+                </Text>
               </TouchableOpacity>
-            </View>
-          </View>
+            </>
+          ) : (
+            <>
+              <Text style={styles.headline}>Check your email.</Text>
+              <Text style={styles.subtitle}>
+                We sent a 6-digit code to {email.trim()}. Enter it to finish creating your account.
+              </Text>
 
-          {error && <Text style={styles.error}>{error}</Text>}
+              <View style={styles.form}>
+                <View style={styles.inputRow}>
+                  <Ionicons name="keypad-outline" size={18} color={colors.onSurfaceVariant} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    value={code}
+                    onChangeText={setCode}
+                    keyboardType="number-pad"
+                    maxLength={10}
+                    autoFocus
+                    placeholderTextColor={colors.onSurfaceVariant}
+                    placeholder="Verification code"
+                  />
+                </View>
+              </View>
 
-          <TouchableOpacity style={styles.cta} onPress={handleEmail} disabled={loading} activeOpacity={0.8}>
-            {loading
-              ? <ActivityIndicator color={colors.onPrimary} />
-              : <Text style={styles.ctaText}>Sign Up</Text>
-            }
-          </TouchableOpacity>
+              {error && <Text style={styles.error}>{error}</Text>}
 
-          <Text style={styles.terms}>
-            By continuing you agree to our{' '}
-            <Text style={styles.link} onPress={() => Linking.openURL(TERMS_URL)}>Terms</Text> and{' '}
-            <Text style={styles.link} onPress={() => Linking.openURL(PRIVACY_URL)}>Privacy Policy</Text>
-          </Text>
+              <TouchableOpacity style={styles.cta} onPress={handleVerify} disabled={loading} activeOpacity={0.8}>
+                {loading
+                  ? <ActivityIndicator color={colors.onPrimary} />
+                  : <Text style={styles.ctaText}>Verify</Text>
+                }
+              </TouchableOpacity>
 
-          <TouchableOpacity style={styles.switchRow} onPress={() => router.push('/sign-in')}>
-            <Text style={styles.switchText}>
-              Already have an account?{' '}
-              <Text style={styles.switchLink}>Sign In</Text>
-            </Text>
-          </TouchableOpacity>
+              <TouchableOpacity onPress={handleResend} disabled={loading} hitSlop={8}>
+                <Text style={styles.resend}>Resend code</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => { setStep('form'); setError(null); }} hitSlop={8}>
+                <Text style={styles.resend}>Use a different email</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </ScrollView>
       </SafeAreaView>
     </KeyboardAvoidingView>
@@ -191,6 +265,19 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
     fontFamily: 'HankenGrotesk_800ExtraBold',
     marginBottom: 8,
+  },
+  subtitle: {
+    ...typography.bodyBase,
+    color: colors.onSurfaceVariant,
+    fontFamily: 'HankenGrotesk_400Regular',
+    lineHeight: 22,
+  },
+  resend: {
+    ...typography.bodySm,
+    color: colors.primary,
+    fontFamily: 'HankenGrotesk_600SemiBold',
+    textAlign: 'center',
+    marginTop: 8,
   },
   oauthGroup: {
     gap: 12,

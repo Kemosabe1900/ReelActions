@@ -132,9 +132,10 @@ function NotificationNavigator() {
 }
 
 const ALLOWED_BY_STATUS: Record<Exclude<AppStatus, 'HYDRATING'>, (segments: string[]) => boolean> = {
-  NEEDS_ONBOARDING: (segs) => segs.includes('(onboarding)'),
+  NEEDS_ONBOARDING: (segs) =>
+    segs.includes('(onboarding)') || segs.includes('(auth)') || segs.includes('sign-in'),
   NEEDS_SUBSCRIPTION: (segs) =>
-    segs.includes('subscription') || segs.includes('backup-offer') || segs.includes('(auth)') || segs.includes('sign-in') || segs.includes('sign-up'),
+    segs.includes('subscription') || segs.includes('(auth)') || segs.includes('sign-in') || segs.includes('sign-up'),
   NEEDS_REGISTRATION: (segs) =>
     segs.includes('(auth)') || segs.includes('sign-in') || segs.includes('sign-up'),
   AUTHENTICATED: (segs) =>
@@ -207,7 +208,6 @@ export default function RootLayout() {
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="(auth)" />
               <Stack.Screen name="subscription" options={{ headerShown: false }} />
-              <Stack.Screen name="backup-offer" options={{ presentation: 'transparentModal', animation: 'fade', headerShown: false, contentStyle: { backgroundColor: 'transparent' } }} />
               <Stack.Screen name="chat" options={{ presentation: 'transparentModal', animation: 'slide_from_bottom', headerShown: false, contentStyle: { backgroundColor: 'transparent' } }} />
               <Stack.Screen name="category/[name]" />
               <Stack.Screen name="video/[id]" />

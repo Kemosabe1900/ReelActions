@@ -28,9 +28,13 @@ export function PurchasesProvider({ children, userId }: { children: ReactNode; u
   const [isSubscribed, setIsSubscribed] = useState(DEV_MODE);
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
   const [loading, setLoading] = useState(true);
+  // The user id we've finished a subscription check for. Until it catches up
+  // with the current userId, purchases are stale for this user.
+  const [checkedUserId, setCheckedUserId] = useState<string | undefined>(undefined);
   const configured = useRef(false);
   const lastUserId = useRef<string | undefined>(undefined);
   const bootedFromCache = useRef(false);
+  const checkGeneration = useRef(0);
 
   useEffect(() => {
     (async () => {
@@ -72,6 +76,7 @@ export function PurchasesProvider({ children, userId }: { children: ReactNode; u
           try { await Purchases.logOut(); } catch {}
           setIsSubscribed(false);
           cacheSubscribed(false);
+          setCheckedUserId(undefined);
         }
         lastUserId.current = userId;
       }
@@ -97,6 +102,10 @@ export function PurchasesProvider({ children, userId }: { children: ReactNode; u
   }
 
   async function checkSubscription() {
+    // Overlapping runs happen when the effect re-fires mid-check (session
+    // hydrating on cold start). Only the newest run may write state, or a
+    // stale pre-sign-in result can overwrite a fresh one.
+    const generation = ++checkGeneration.current;
     // null = couldn't reach either source; keep whatever we booted with
     // rather than kicking a possibly-subscribed user over a network blip.
     let active: boolean | null = null;
@@ -109,10 +118,12 @@ export function PurchasesProvider({ children, userId }: { children: ReactNode; u
         active = profile.subscription_status === 'active';
       } catch {}
     }
+    if (generation !== checkGeneration.current) return;
     if (active !== null) {
       setIsSubscribed(active);
       cacheSubscribed(active);
     }
+    setCheckedUserId(userId);
     setLoading(false);
   }
 
@@ -135,8 +146,15 @@ export function PurchasesProvider({ children, userId }: { children: ReactNode; u
     return active;
   }
 
+  // Stay "loading" the instant userId changes to a not-yet-checked user, so the
+  // state machine sees HYDRATING (not NEEDS_SUBSCRIPTION) during sign-in and
+  // never flashes the paywall. Skipped when already subscribed (cache boot) so
+  // the instant cold-open optimization is preserved.
+  const purchasesLoading =
+    loading || (!DEV_MODE && !IS_EXPO_GO && !isSubscribed && userId !== checkedUserId);
+
   return (
-    <PurchasesContext.Provider value={{ isSubscribed, packages, loading, purchase, restore }}>
+    <PurchasesContext.Provider value={{ isSubscribed, packages, loading: purchasesLoading, purchase, restore }}>
       {children}
     </PurchasesContext.Provider>
   );

@@ -43,8 +43,7 @@ We tried two patterns. The simpler one wins. **Use this:**
   <Stack.Screen name="(onboarding)" />
   <Stack.Screen name="(auth)" />
   <Stack.Screen name="(tabs)" />
-  <Stack.Screen name="subscription" options={{ presentation: 'modal' }} />
-  <Stack.Screen name="backup-offer" options={{ presentation: 'transparentModal', animation: 'fade' }} />
+  <Stack.Screen name="subscription" />
   <Stack.Screen name="chat" options={{ presentation: 'transparentModal', animation: 'slide_from_bottom' }} />
   <Stack.Screen name="category/[name]" />
   <Stack.Screen name="video/[id]" />
@@ -86,6 +85,7 @@ Tried flattening route groups by deleting their `_layout.tsx` files.
 - ❌ AsyncStorage flag `paywallDismissed` — we removed this. Hard gate = no dismiss.
 - ❌ Calling `Purchases.configure()` on every userId change — must be called ONCE per app lifecycle. Use a `useRef(false)` guard.
 - ❌ Sign-up link from sign-in screen — was a paywall bypass. Replaced with no link.
+- ❌ Backup-offer discount modal — removed after App Store rejection flagged it as a manipulative sales tactic (dcf4839 unlinked it; screen fully deleted 2026-07-15). Do not reintroduce.
 - ❌ Conditional `<Stack>` rendering per status — crashes in expo-router 6
 - ❌ Deleting (auth)/_layout.tsx or (onboarding)/_layout.tsx — needed by expo-router
 
@@ -111,10 +111,7 @@ PostHogProvider
 
 | When | Use |
 |------|-----|
-| User taps "X on paywall" | `router.push('/backup-offer')` |
 | User taps "Already have account" | `router.push('/(auth)/sign-in')` |
-| User taps "No thanks" on backup | `router.back()` |
-| User taps backup backdrop | `router.back()` |
 | Sign-in success | nothing — let state drive |
 | Sign-up success | nothing — let state drive |
 | Purchase success | nothing — let state drive |
@@ -156,6 +153,31 @@ useEffect(() => {
 - StateGuard does `router.replace` which doesn't clear stack history. Stale routes can pile up under the current screen but aren't visible. Acceptable trade-off vs. crashing.
 
 ## Session Log (Newest First)
+
+### 2026-07-19 (SUBMITTED for App Review)
+
+Build 36 submitted to App Review by Mati (staged in prior session: build 36 + rewritten notes answering 2.1.0 App Completeness, demo video ReelActions-AppReview-demo.mp4, reviewer creds active+empty, manual release). New age-rating social-media questions answered No, rating stays 4+ (Sept 7 deadline satisfied). Now WAITING on Apple verdict.
+
+While waiting, parked queue:
+- Day-one update pile (build 37 polish + anything backend-only deploys via Railway anytime)
+- yt-dlp update-check automation idea (from /btw)
+- #9 onboarding answers persistence, 8 pre-existing test failures, home focus throttle + expo-image perf
+- On APPROVAL + live: friend offer codes (ASC monthly sub > Offer Codes > Free, 1yr, 30 one-time codes; tell friends to cancel right after redeeming)
+
+### 2026-07-14/15 late (TestFlight builds 35+36, monetization proven)
+
+Builds 35 and 36 shipped to TestFlight (eas.json now has ascAppId 6773564841 so submits are non-interactive). Flags verified false before both. TestFlight findings, all resolved:
+- Migration 009 RUN in Supabase: claim_next_job() wrote status 'processing' which the original check constraint rejected, so every claim failed post-deploy. Queue verified healthy after (stuck job claimed in seconds, attempts increments).
+- Build 34 crash: structured_data ingredient objects rendered as React children. toText() defensive renderer in video/[id].tsx (in build 35).
+- TRIAL PURCHASE WORKS (first time ever, June blocker dead). Full chain proven: device purchase → RC → webhook → profiles.subscription_status active.
+- RC webhook was double-broken since June: URL missing /api/v1 (404s) + Authorization header mismatch (401s). Fixed in RC dashboard (URL edited, user re-entered Bearer+secret). Old failed events NOT retried on purpose (stale overwrites).
+- Google sign-in "not working" = silent success: session useEffect pop was lost in a refactor. Restored (caa1b06) + social sign-in errors now go to Sentry (9a86620). Both in build 36, NOT in 35 — do not submit 35 to App Review.
+- Home-flash-then-paywall on stale RC cache = accepted churned-subscriber trade, self-healing.
+- Onboarding only shows when signed out AND not onboarded; Supabase session lives in SecureStore/Keychain and survives app deletion.
+
+NEXT: TestFlight-verify build 36 (sign-in pop, then full checklist), then submit for App Review with 36.
+
+Free access for ~30 friends (decided 2026-07-15): ONLY after app is approved and live on the App Store (no TestFlight distribution, per Mati). Then: App Store Connect > monthly sub > Offer Codes > Free type, 1 year, 30 one-time codes, text each friend their redemption link. No app code needed. MUST tell friends to cancel right after redeeming: free year survives cancellation, stops the $12.99/mo auto-renew at year end. Remaining: #9 onboarding answers persistence, 8 pre-existing test failures, home focus throttle + expo-image perf items.
 
 ### 2026-07-14 (security + queue + chat)
 

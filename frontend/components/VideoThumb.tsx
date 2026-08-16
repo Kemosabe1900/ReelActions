@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { View, Image, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,7 +11,9 @@ export const THUMB_HEIGHT = 74;
 // is cropped, and a blurred copy of the same image fills the empty space
 // behind it.
 export function VideoThumb({ uri }: { uri: string | null }) {
-  if (!uri) {
+  const [failed, setFailed] = useState(false);
+
+  if (!uri || failed) {
     return (
       <LinearGradient
         colors={['#1c1c1c', '#252525']}
@@ -26,7 +29,7 @@ export function VideoThumb({ uri }: { uri: string | null }) {
     <View style={styles.box}>
       <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={12} />
       <View style={styles.dim} />
-      <Image source={{ uri }} style={styles.image} resizeMode="contain" />
+      <Image source={{ uri }} style={styles.image} resizeMode="contain" onError={() => setFailed(true)} />
     </View>
   );
 }

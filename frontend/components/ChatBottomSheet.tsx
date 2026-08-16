@@ -68,6 +68,14 @@ type Message = {
   streaming?: boolean;
 };
 
+function SourceThumb({ uri }: { uri: string | null | undefined }) {
+  const [failed, setFailed] = useState(false);
+  if (!uri || failed) {
+    return <Text style={styles.sourceThumbIcon}>▶</Text>;
+  }
+  return <Image source={{ uri }} style={styles.sourceThumbImg} onError={() => setFailed(true)} />;
+}
+
 export function ChatBottomSheet() {
   const { isOpen, closeChat } = useChat();
   const { videos } = useData();
@@ -362,11 +370,7 @@ export function ChatBottomSheet() {
                                 onPress={() => handleVideoTap(src.id)}
                               >
                                 <View style={styles.sourceThumb}>
-                                  {src.thumbnail_url ? (
-                                    <Image source={{ uri: src.thumbnail_url }} style={styles.sourceThumbImg} />
-                                  ) : (
-                                    <Text style={styles.sourceThumbIcon}>▶</Text>
-                                  )}
+                                  <SourceThumb uri={src.thumbnail_url} />
                                 </View>
                                 <View style={styles.sourceInfo}>
                                   <Text style={styles.sourceTitle} numberOfLines={2}>{src.title}</Text>

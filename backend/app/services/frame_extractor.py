@@ -49,6 +49,15 @@ def extract_frames_for_vision(video_path: str | None, segments: list[dict]) -> l
         return frames
 
 
+def extract_thumbnail_frame(video_path: str | None) -> bytes | None:
+    """Grab a single frame near the start of an already-downloaded video, for
+    use as a thumbnail when no CDN-provided thumbnail is available."""
+    if not video_path or not os.path.exists(video_path):
+        return None
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        return _extract_frame_at(video_path, 0.5, tmp_dir)
+
+
 def _extract_frame_at(video_path: str, timestamp: float, tmp_dir: str) -> bytes | None:
     frame_path = os.path.join(tmp_dir, f"frame_{int(timestamp * 1000)}.jpg")
     cmd = [

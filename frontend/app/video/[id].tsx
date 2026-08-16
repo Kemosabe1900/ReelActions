@@ -190,6 +190,7 @@ export default function VideoDetailScreen() {
   const cached = videos.find(v => v.id === id) ?? null;
   const [video, setVideo] = useState<Video | null>(cached);
   const [loading, setLoading] = useState(!cached);
+  const [thumbFailed, setThumbFailed] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -250,11 +251,11 @@ export default function VideoDetailScreen() {
       ) : (
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={styles.hero}>
-            {video.thumbnail_url ? (
+            {video.thumbnail_url && !thumbFailed ? (
               <>
                 <Image source={{ uri: video.thumbnail_url }} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={16} />
                 <View style={styles.heroPortrait}>
-                  <Image source={{ uri: video.thumbnail_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                  <Image source={{ uri: video.thumbnail_url }} style={StyleSheet.absoluteFill} resizeMode="cover" onError={() => setThumbFailed(true)} />
                 </View>
               </>
             ) : (

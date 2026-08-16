@@ -5,7 +5,8 @@ from app.services.downloader import download_audio, download_images, is_image_po
 from app.services.transcriber import get_transcription_service, TranscriptionError
 from app.services.classifier import get_classification_service, ClassificationError
 from app.services.embedder import get_embedding_service, EmbeddingError
-from app.services.frame_extractor import extract_frames_for_vision
+from app.services.frame_extractor import extract_frames_for_vision, extract_thumbnail_frame
+from app.services.thumbnails import upload_thumbnail_from_url, upload_thumbnail_from_bytes
 from app.services.push import notify_user
 from app.services.alerting import alert
 
@@ -186,8 +187,13 @@ class VideoProcessor:
                     raise RuntimeError("No speech or caption found in this video, cannot classify")
 
                 update_data: dict = {"transcript": transcript_text or caption}
-                if thumbnail_url:
-                    update_data["thumbnail_url"] = thumbnail_url
+                hosted_thumbnail = upload_thumbnail_from_url(thumbnail_url, video_id) if thumbnail_url else None
+                if not hosted_thumbnail:
+                    frame_bytes = extract_thumbnail_frame(video_path)
+                    if frame_bytes:
+                        hosted_thumbnail = upload_thumbnail_from_bytes(frame_bytes, video_id)
+                if hosted_thumbnail:
+                    update_data["thumbnail_url"] = hosted_thumbnail
                 self._supabase.table("videos").update(update_data).eq("id", video_id).execute()
 
                 frames = extract_frames_for_vision(video_path, transcript_result.segments)

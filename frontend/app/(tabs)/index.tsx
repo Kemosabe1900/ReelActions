@@ -262,7 +262,7 @@ export default function HomeScreen() {
 
   const handleDelete = (id: string) => { hapticLight(); deleteVideo(id); };
 
-  const handleToggleTried = (id: string) => { hapticSuccess(); toggleTried(id); };
+  const handleToggleTried = (id: string) => { hapticSuccess(); toggleTried(id).catch(() => {}); };
 
   const handleRename = () => {
     if (!renameTarget || !renameText.trim()) return;

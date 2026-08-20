@@ -49,6 +49,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState(false);
   const [pendingJobs, setPendingJobs] = useState<PendingJob[]>([]);
   const prevUserIdRef = useRef<string | null>(null);
+  // Bumped on every user change so a refresh() started for a previous user
+  // can't land after a different user has signed in and overwrite their data.
+  const refreshGenerationRef = useRef(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingJobsRef = useRef<PendingJob[]>([]);
   useEffect(() => { pendingJobsRef.current = pendingJobs; }, [pendingJobs]);
@@ -93,8 +96,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refresh = useCallback(async () => {
+    const generation = refreshGenerationRef.current;
     try {
       const [v, p] = await Promise.all([api.videos.list(), api.profile.get()]);
+      if (generation !== refreshGenerationRef.current) return;
       setVideos(v);
       setProfile(p);
       setError(false);
@@ -103,14 +108,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         AsyncStorage.setItem(cacheKey(uid), JSON.stringify({ videos: v, profile: p })).catch(() => {});
       }
     } catch {
-      setError(true);
+      if (generation === refreshGenerationRef.current) setError(true);
     } finally {
-      setLoading(false);
+      if (generation === refreshGenerationRef.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     const currentUserId = session?.user?.id ?? null;
+    refreshGenerationRef.current += 1;
     if (!session) {
       setVideos([]);
       setProfile(null);
@@ -154,8 +160,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     try {
       await api.videos.toggleTried(videoId);
       refresh();
-    } catch {
+    } catch (e) {
       refresh();
+      throw e;
     }
   }, [refresh]);
 

@@ -66,6 +66,8 @@ export default function ForgotPasswordScreen() {
         return;
       }
       router.back();
+    } catch {
+      setError('Something went wrong. Try again.');
     } finally {
       setLoading(false);
     }

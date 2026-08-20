@@ -76,7 +76,12 @@ class ClassificationError(Exception):
 
 class ClassificationService:
     def __init__(self):
-        self.client = Anthropic(api_key=settings.anthropic_api_key)
+        # Explicit timeout (SDK default is 10 min/call) — classify() can chain
+        # up to ~4 sequential calls (2 attempts x meta-language retry), and an
+        # unbounded worst case can exceed the job queue's 20-min stale-job
+        # reclaim window, letting a second worker double-process a job that
+        # isn't actually dead.
+        self.client = Anthropic(api_key=settings.anthropic_api_key, timeout=90.0)
         self.model = "claude-haiku-4-5-20251001"
 
     def classify(

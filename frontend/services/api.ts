@@ -159,6 +159,7 @@ export const api = {
 
       let cursor = 0;
       let buffer = '';
+      let done = false;
 
       xhr.onprogress = () => {
         const chunk = xhr.responseText.slice(cursor);
@@ -171,7 +172,7 @@ export const api = {
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
           const raw = line.slice(6).trim();
-          if (raw === '[DONE]') { onDone(); return; }
+          if (raw === '[DONE]') { done = true; onDone(); return; }
           try {
             const event = JSON.parse(raw);
             if (event.type === 'delta') onDelta(event.text);
@@ -183,6 +184,11 @@ export const api = {
       xhr.onload = () => {
         if (xhr.status >= 400) {
           onError(new Error(`API error ${xhr.status}`));
+        } else if (!done) {
+          // Connection closed without an explicit [DONE] marker (truncated
+          // response, proxy buffering) — don't leave the UI stuck mid-stream
+          // waiting for a signal that's never coming.
+          onDone();
         }
       };
 

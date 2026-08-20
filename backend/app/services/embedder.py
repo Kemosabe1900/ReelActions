@@ -93,6 +93,11 @@ class EmbeddingService:
         if not transcript or len(transcript.strip()) < 10:
             raise EmbeddingError("Transcript too short to embed")
 
+        # A retried job (or the URL-cache path) can call this again for the
+        # same video — clear any chunks from a prior attempt first, or they
+        # accumulate duplicates that pollute RAG search/chat results.
+        self.supabase.table("transcript_chunks").delete().eq("video_id", video_id).execute()
+
         metadata_prefix = ""
         if category or title:
             metadata_prefix = f"[{category or 'Video'}] {title or ''}\n\n"

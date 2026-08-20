@@ -211,7 +211,6 @@ export default function RootLayout() {
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="(auth)" />
               <Stack.Screen name="subscription" options={{ headerShown: false }} />
-              <Stack.Screen name="chat" options={{ presentation: 'transparentModal', animation: 'slide_from_bottom', headerShown: false, contentStyle: { backgroundColor: 'transparent' } }} />
               <Stack.Screen name="category/[name]" />
               <Stack.Screen name="video/[id]" />
             </Stack>

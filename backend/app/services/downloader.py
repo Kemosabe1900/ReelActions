@@ -115,6 +115,22 @@ def _video_path_or_none(raw_path: str) -> str | None:
     return raw_path if Path(raw_path).suffix.lower() in VIDEO_EXTS else None
 
 
+def _convert_and_cleanup(raw_path: str, job_id: str) -> tuple[str, str | None]:
+    """Runs _to_mp3, then removes the raw source file unless it's a video
+    format the processor still needs for frame extraction (returned as
+    video_path). Always removes raw_path if conversion itself fails, since
+    nothing downstream uses it once the job is about to fail anyway."""
+    try:
+        audio_path = _to_mp3(raw_path, job_id)
+    except Exception:
+        cleanup(raw_path)
+        raise
+    video_path = _video_path_or_none(raw_path)
+    if video_path is None:
+        cleanup(raw_path)
+    return audio_path, video_path
+
+
 def _download_via_ytdlp(url: str, job_id: str, timeout: int = 120) -> tuple[str, str, str | None, str | None]:
     tmp = tempfile.gettempdir()
     cmd = [
@@ -141,7 +157,8 @@ def _download_via_ytdlp(url: str, job_id: str, timeout: int = 120) -> tuple[str,
     # Meta only after a successful download — a failing platform shouldn't
     # burn an extra 30s on metadata it will never use.
     caption, thumbnail_url = _fetch_ytdlp_meta(url)
-    return _to_mp3(raw_path, job_id), caption, thumbnail_url, _video_path_or_none(raw_path)
+    audio_path, video_path = _convert_and_cleanup(raw_path, job_id)
+    return audio_path, caption, thumbnail_url, video_path
 
 
 def download_audio(url: str, job_id: str) -> tuple[str, str, str | None, str | None]:
@@ -151,7 +168,8 @@ def download_audio(url: str, job_id: str) -> tuple[str, str, str | None, str | N
     if "tiktok.com" in url:
         from app.services.tiktok_scraper import download_tiktok_audio
         raw_path, caption, thumbnail_url = download_tiktok_audio(url, job_id)
-        return _to_mp3(raw_path, job_id), caption, thumbnail_url, _video_path_or_none(raw_path)
+        audio_path, video_path = _convert_and_cleanup(raw_path, job_id)
+        return audio_path, caption, thumbnail_url, video_path
 
     if "instagram.com" in url:
         try:
@@ -162,7 +180,8 @@ def download_audio(url: str, job_id: str) -> tuple[str, str, str | None, str | N
             logger.warning("[downloader] yt-dlp Instagram failed, trying Apify: %s", e)
             from app.services.instagram_apify import download_instagram_audio
             raw_path, caption, thumbnail_url = download_instagram_audio(url, job_id)
-            return _to_mp3(raw_path, job_id), caption, thumbnail_url, _video_path_or_none(raw_path)
+            audio_path, video_path = _convert_and_cleanup(raw_path, job_id)
+            return audio_path, caption, thumbnail_url, video_path
 
     return _download_via_ytdlp(url, job_id)
 

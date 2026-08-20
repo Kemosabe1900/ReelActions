@@ -36,6 +36,7 @@ export default function SubscriptionScreen() {
   const { packages, purchase, restore } = usePurchases();
   const [selectedId, setSelectedId] = useState<'annual' | 'monthly' | 'weekly'>('annual');
   const [purchasing, setPurchasing] = useState(false);
+  const selectedPlan = PLANS.find(p => p.id === selectedId)!;
 
   const annualPkg = packages.find(p => p.packageType === 'ANNUAL');
   const monthlyPkg = packages.find(p => p.packageType === 'MONTHLY');
@@ -64,7 +65,7 @@ export default function SubscriptionScreen() {
         Alert.alert('No purchase found', 'We could not find an existing subscription for this account.');
       }
     } catch {
-      Alert.alert('No purchase found', 'We could not find an existing subscription for this account.');
+      Alert.alert('Restore failed', 'Something went wrong. Please try again.');
     }
   }
 
@@ -106,14 +107,17 @@ export default function SubscriptionScreen() {
                 activeOpacity={0.8}
               >
                 <View style={styles.planLeft}>
-                  <Text style={[styles.planLabel, active && styles.planLabelActive]}>
-                    {plan.label}
-                  </Text>
-                  {plan.badge && (
-                    <View style={styles.badge}>
-                      <Text style={styles.badgeText}>{plan.badge}</Text>
-                    </View>
-                  )}
+                  <View style={styles.planLabelRow}>
+                    <Text style={[styles.planLabel, active && styles.planLabelActive]}>
+                      {plan.label}
+                    </Text>
+                    {plan.badge && (
+                      <View style={styles.badge}>
+                        <Text style={styles.badgeText}>{plan.badge}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.planTrialCaption}>14-day free trial</Text>
                 </View>
                 <View style={styles.planPriceCol}>
                   <Text style={[styles.planBilledAmount, active && styles.planBilledAmountActive]}>
@@ -140,7 +144,9 @@ export default function SubscriptionScreen() {
               {purchasing ? 'Processing…' : 'Start 14-day free trial'}
             </Text>
           </TouchableOpacity>
-          <Text style={styles.trustLine}>Cancel anytime  ·  No charges for 14 days</Text>
+          <Text style={styles.trustLine}>
+            14-day free trial, then {selectedPlan.billedAmount}  ·  Cancel anytime
+          </Text>
           <TouchableOpacity onPress={() => router.push('/(auth)/sign-in')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
             <Text style={styles.signInLink}>Already have an account? <Text style={{ color: colors.primary, fontFamily: 'HankenGrotesk_700Bold' }}>Sign in</Text></Text>
           </TouchableOpacity>
@@ -226,9 +232,18 @@ const styles = StyleSheet.create({
     backgroundColor: `${colors.primary}12`,
   },
   planLeft: {
+    alignItems: 'flex-start',
+    gap: 3,
+  },
+  planLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+  planTrialCaption: {
+    fontSize: 11,
+    fontFamily: 'HankenGrotesk_400Regular',
+    color: 'rgba(255,255,255,0.35)',
   },
   badge: {
     backgroundColor: colors.primary,

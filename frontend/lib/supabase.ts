@@ -2,10 +2,52 @@ import { AppState } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 
+// iOS Keychain (what SecureStore uses under the hood) caps a single value at
+// ~2048 bytes. Supabase's persisted session (access + refresh JWTs) can
+// exceed that, so a plain setItemAsync silently fails to persist it — next
+// launch reads back nothing and looks exactly like a logout. Split large
+// values across multiple keys, each under the limit.
+const CHUNK_SIZE = 1800;
+
+async function setChunked(key: string, value: string): Promise<void> {
+  const chunks: string[] = [];
+  for (let i = 0; i < value.length; i += CHUNK_SIZE) {
+    chunks.push(value.slice(i, i + CHUNK_SIZE));
+  }
+  await Promise.all(chunks.map((chunk, i) => SecureStore.setItemAsync(`${key}_${i}`, chunk)));
+  await SecureStore.setItemAsync(`${key}_chunks`, String(chunks.length));
+  // Clean up a legacy unchunked value so it can't be read back stale later.
+  await SecureStore.deleteItemAsync(key).catch(() => {});
+}
+
+async function getChunked(key: string): Promise<string | null> {
+  const countStr = await SecureStore.getItemAsync(`${key}_chunks`);
+  if (countStr) {
+    const count = parseInt(countStr, 10);
+    const parts = await Promise.all(
+      Array.from({ length: count }, (_, i) => SecureStore.getItemAsync(`${key}_${i}`))
+    );
+    if (parts.some((p) => p === null)) return null;
+    return parts.join('');
+  }
+  // Pre-fix session stored under the plain key.
+  return SecureStore.getItemAsync(key);
+}
+
+async function removeChunked(key: string): Promise<void> {
+  const countStr = await SecureStore.getItemAsync(`${key}_chunks`);
+  if (countStr) {
+    const count = parseInt(countStr, 10);
+    await Promise.all(Array.from({ length: count }, (_, i) => SecureStore.deleteItemAsync(`${key}_${i}`)));
+    await SecureStore.deleteItemAsync(`${key}_chunks`);
+  }
+  await SecureStore.deleteItemAsync(key).catch(() => {});
+}
+
 const ExpoSecureStoreAdapter = {
-  getItem: (key: string) => SecureStore.getItemAsync(key),
-  setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
-  removeItem: (key: string) => SecureStore.deleteItemAsync(key),
+  getItem: getChunked,
+  setItem: setChunked,
+  removeItem: removeChunked,
 };
 
 export const supabase = createClient(

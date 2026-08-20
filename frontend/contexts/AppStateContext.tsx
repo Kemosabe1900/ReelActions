@@ -7,6 +7,7 @@ import { DEV_MODE, BYPASS_PAYWALL } from '@/constants/config';
 export type AppStatus =
   | 'HYDRATING'
   | 'NEEDS_ONBOARDING'
+  | 'NEEDS_REAUTH'
   | 'NEEDS_SUBSCRIPTION'
   | 'NEEDS_REGISTRATION'
   | 'AUTHENTICATED';
@@ -24,16 +25,23 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const { session, loading: authLoading } = useAuth();
   const { isSubscribed, loading: purchasesLoading } = usePurchases();
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
+  // Set once, the first time this device ever reaches AUTHENTICATED. Lets a
+  // later session loss (dead token, expired refresh) route to sign-in
+  // instead of the paywall — only a device that's never been authenticated
+  // should ever land back on NEEDS_SUBSCRIPTION.
+  const [everAuthenticated, setEverAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
     (async () => {
       if (RESET_ONBOARDING) {
         await AsyncStorage.removeItem('onboarding_complete');
         setOnboardingDone(false);
-        return;
+      } else {
+        const val = await AsyncStorage.getItem('onboarding_complete');
+        setOnboardingDone(val === 'true');
       }
-      const val = await AsyncStorage.getItem('onboarding_complete');
-      setOnboardingDone(val === 'true');
+      const everAuth = await AsyncStorage.getItem('ever_authenticated');
+      setEverAuthenticated(everAuth === 'true');
     })();
   }, []);
 
@@ -45,12 +53,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const effectivelySubscribed = isSubscribed || BYPASS_PAYWALL;
 
   let status: AppStatus;
-  if (authLoading || purchasesLoading || onboardingDone === null) {
+  if (authLoading || purchasesLoading || onboardingDone === null || everAuthenticated === null) {
     status = 'HYDRATING';
   } else if (DEV_MODE) {
     status = 'AUTHENTICATED';
   } else if (!onboardingDone && !session) {
     status = 'NEEDS_ONBOARDING';
+  } else if (!session && everAuthenticated) {
+    status = 'NEEDS_REAUTH';
   } else if (!effectivelySubscribed) {
     status = 'NEEDS_SUBSCRIPTION';
   } else if (effectivelySubscribed && !session) {
@@ -58,6 +68,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   } else {
     status = 'AUTHENTICATED';
   }
+
+  useEffect(() => {
+    if (status === 'AUTHENTICATED') {
+      setEverAuthenticated(true);
+      AsyncStorage.setItem('ever_authenticated', 'true').catch(() => {});
+    }
+  }, [status]);
 
   return (
     <AppStateContext.Provider value={{ status, markOnboardingComplete }}>

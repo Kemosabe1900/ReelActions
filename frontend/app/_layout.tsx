@@ -134,6 +134,8 @@ function NotificationNavigator() {
 const ALLOWED_BY_STATUS: Record<Exclude<AppStatus, 'HYDRATING'>, (segments: string[]) => boolean> = {
   NEEDS_ONBOARDING: (segs) =>
     segs.includes('(onboarding)') || segs.includes('(auth)') || segs.includes('sign-in'),
+  NEEDS_REAUTH: (segs) =>
+    segs.includes('(auth)') || segs.includes('sign-in'),
   NEEDS_SUBSCRIPTION: (segs) =>
     segs.includes('subscription') || segs.includes('(auth)') || segs.includes('sign-in') || segs.includes('sign-up'),
   NEEDS_REGISTRATION: (segs) =>
@@ -144,6 +146,7 @@ const ALLOWED_BY_STATUS: Record<Exclude<AppStatus, 'HYDRATING'>, (segments: stri
 
 const HOME_FOR_STATUS: Record<Exclude<AppStatus, 'HYDRATING'>, string> = {
   NEEDS_ONBOARDING: '/(onboarding)',
+  NEEDS_REAUTH: '/(auth)/sign-in',
   NEEDS_SUBSCRIPTION: '/subscription',
   NEEDS_REGISTRATION: '/(auth)/sign-up',
   AUTHENTICATED: '/(tabs)',

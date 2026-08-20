@@ -17,6 +17,8 @@ export default function Index() {
   switch (status) {
     case 'NEEDS_ONBOARDING':
       return <Redirect href="/(onboarding)" />;
+    case 'NEEDS_REAUTH':
+      return <Redirect href="/(auth)/sign-in" />;
     case 'NEEDS_SUBSCRIPTION':
       return <Redirect href="/subscription" />;
     case 'NEEDS_REGISTRATION':

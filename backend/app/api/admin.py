@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Request
 from app.dependencies import get_current_user
+from app.api.admin_dashboard import check_admin_auth
 from app.database import get_db
 from app.services.embedder import get_embedding_service
 from app.services.classifier import get_classification_service
@@ -10,7 +11,7 @@ router = APIRouter(tags=["admin"])
 
 @router.post("/admin/reembed")
 @limiter.limit("3/hour")
-def reembed_all(request: Request, user_id: str = Depends(get_current_user)):
+def reembed_all(request: Request, user_id: str = Depends(get_current_user), _admin=Depends(check_admin_auth)):
     db = get_db()
     embedder = get_embedding_service()
 
@@ -45,7 +46,7 @@ def reembed_all(request: Request, user_id: str = Depends(get_current_user)):
 
 @router.post("/admin/reclassify")
 @limiter.limit("3/hour")
-def reclassify_all(request: Request, user_id: str = Depends(get_current_user)):
+def reclassify_all(request: Request, user_id: str = Depends(get_current_user), _admin=Depends(check_admin_auth)):
     db = get_db()
     classifier = get_classification_service()
     embedder = get_embedding_service()
@@ -100,7 +101,7 @@ BAD_CATEGORIES = ["pending review", "pending_review", "mapped"]
 
 @router.post("/admin/fix-categories")
 @limiter.limit("3/hour")
-def fix_bad_categories(request: Request, user_id: str = Depends(get_current_user)):
+def fix_bad_categories(request: Request, user_id: str = Depends(get_current_user), _admin=Depends(check_admin_auth)):
     db = get_db()
     classifier = get_classification_service()
     embedder = get_embedding_service()

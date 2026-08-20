@@ -107,7 +107,7 @@ setInterval(load, 30000);
 """
 
 
-def _check_auth(credentials: HTTPBasicCredentials = Depends(security)):
+def check_admin_auth(credentials: HTTPBasicCredentials = Depends(security)):
     ok = secrets.compare_digest(credentials.password.encode(), settings.admin_secret.encode())
     if not ok:
         raise HTTPException(status_code=401, detail="Unauthorized",
@@ -119,12 +119,12 @@ class IPRequest(BaseModel):
 
 
 @router.get("/admin/dashboard", response_class=HTMLResponse)
-def dashboard(auth=Depends(_check_auth)):
+def dashboard(auth=Depends(check_admin_auth)):
     return HTML
 
 
 @router.get("/admin/events")
-def get_events(auth=Depends(_check_auth)):
+def get_events(auth=Depends(check_admin_auth)):
     result = (
         get_db().table("admin_events")
         .select("*")
@@ -136,15 +136,15 @@ def get_events(auth=Depends(_check_auth)):
 
 
 @router.get("/admin/blocked-ips")
-def get_blocked_ips(auth=Depends(_check_auth)):
+def get_blocked_ips(auth=Depends(check_admin_auth)):
     return get_db().table("blocked_ips").select("*").order("blocked_at", desc=True).execute().data
 
 
 @router.post("/admin/block-ip", status_code=204)
-def block_ip(body: IPRequest, auth=Depends(_check_auth)):
+def block_ip(body: IPRequest, auth=Depends(check_admin_auth)):
     get_db().table("blocked_ips").upsert({"ip": body.ip}).execute()
 
 
 @router.post("/admin/unblock-ip", status_code=204)
-def unblock_ip(body: IPRequest, auth=Depends(_check_auth)):
+def unblock_ip(body: IPRequest, auth=Depends(check_admin_auth)):
     get_db().table("blocked_ips").delete().eq("ip", body.ip).execute()

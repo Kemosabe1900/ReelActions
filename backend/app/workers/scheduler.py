@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo
 
 from app.database import get_db
 from app.services.push import notify_user
+from app.api.profile import calculate_streak
 
 # Users who haven't reported a timezone yet (old builds) default to US Eastern.
 DEFAULT_TZ = "America/New_York"
@@ -53,7 +54,7 @@ def _streak_message(user_id: str) -> tuple[str, str]:
     db = get_db()
     rows = (
         db.table("videos")
-        .select("title,tried")
+        .select("title,tried,tried_at")
         .eq("user_id", user_id)
         .is_("deleted_at", "null")
         .execute()
@@ -62,10 +63,21 @@ def _streak_message(user_id: str) -> tuple[str, str]:
     if not rows:
         return ("Start your streak", "Add your first save to get going.")
 
+    tried_at_values = [r["tried_at"] for r in rows if r.get("tried_at")]
+    streak = calculate_streak(tried_at_values)
     untried = [r["title"] for r in rows if not r["tried"] and r.get("title")]
+
+    # Only claim a streak is "alive" if one actually exists — same
+    # calculate_streak() the profile screen shows, so this never says
+    # something the user's own stats page would contradict.
+    if streak > 0:
+        title = f"Keep your {streak}-day streak alive"
+    else:
+        title = "Start a streak"
+
     if untried:
-        return ("Keep your streak alive", f"Try {random.choice(untried)} today.")
-    return ("Keep your streak alive", "Try a save today.")
+        return (title, f"Try {random.choice(untried)} today.")
+    return (title, "Try a save today.")
 
 
 def _saved_count_this_week(user_id: str) -> int:
@@ -81,6 +93,22 @@ def _saved_count_this_week(user_id: str) -> int:
     return len(result.data)
 
 
+def _claim_reminder_slot(user_id: str, today_str: str) -> bool:
+    """Atomically claims today's reminder for this user via a conditional
+    UPDATE, so if more than one app instance is alive during the target hour
+    (e.g. a Railway redeploy overlapping 6 PM local), only one instance's
+    send wins instead of the user getting a notification from each."""
+    db = get_db()
+    result = (
+        db.table("profiles")
+        .update({"last_streak_notified_date": today_str})
+        .eq("id", user_id)
+        .or_(f"last_streak_notified_date.is.null,last_streak_notified_date.neq.{today_str}")
+        .execute()
+    )
+    return bool(result.data)
+
+
 def run_streak_reminder():
     """Runs hourly; notifies each user once at their local 6 PM if they
     haven't tried a save yet today (in their own timezone)."""
@@ -89,6 +117,8 @@ def run_streak_reminder():
         if now_local is None or now_local.hour != REMINDER_LOCAL_HOUR:
             continue
         if _tried_today_local(user_id, now_local):
+            continue
+        if not _claim_reminder_slot(user_id, now_local.date().isoformat()):
             continue
         title, body = _streak_message(user_id)
         notify_user(user_id, title=title, body=body)

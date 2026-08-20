@@ -27,12 +27,10 @@ def _set_status(user_id: str | None, status: str):
 @router.post("/webhooks/revenuecat", status_code=200)
 async def revenuecat_webhook(request: Request):
     if not settings.revenuecat_webhook_secret:
-        if settings.environment == "production":
-            raise HTTPException(status_code=503, detail="Webhook secret not configured")
-    else:
-        auth = request.headers.get("Authorization", "")
-        if auth != f"Bearer {settings.revenuecat_webhook_secret}":
-            raise HTTPException(status_code=401)
+        raise HTTPException(status_code=503, detail="Webhook secret not configured")
+    auth = request.headers.get("Authorization", "")
+    if auth != f"Bearer {settings.revenuecat_webhook_secret}":
+        raise HTTPException(status_code=401)
 
     payload = await request.json()
     event = payload.get("event", {})

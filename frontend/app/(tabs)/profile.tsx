@@ -57,7 +57,9 @@ export default function ProfileScreen() {
     try {
       await api.profile.update(trimmed);
       await refresh();
-    } catch {}
+    } catch {
+      Alert.alert('Could not save name', 'Something went wrong. Please try again.');
+    }
   };
 
   const handleSignOut = () => {

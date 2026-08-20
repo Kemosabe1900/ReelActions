@@ -48,6 +48,10 @@ class VideoProcessor:
         if status == "completed":
             # Never resurrect a job the API already declared failed.
             query = query.neq("status", "failed")
+        else:
+            # A completed job is done; nothing later (e.g. a post-completion
+            # exception from a push-notification lookup) should downgrade it.
+            query = query.neq("status", "completed")
         query.execute()
 
     def _handle_failure(self, job_id: str, video_id: str, technical: str, user_msg: str, user_id: str | None = None):
@@ -76,7 +80,7 @@ class VideoProcessor:
                 "error_message": user_msg,
                 "next_retry_at": next_retry.isoformat(),
                 "updated_at": datetime.now(timezone.utc).isoformat(),
-            }).eq("id", job_id).execute()
+            }).eq("id", job_id).neq("status", "completed").execute()
             print(f"[processor] job {job_id} attempt {attempts} failed ({technical}), retrying in {delay}s")
             return
 

@@ -26,5 +26,9 @@ def send_push_notification(token: str, title: str, body: str, data: dict | None 
 
 
 def notify_user(user_id: str, title: str, body: str, data: dict | None = None) -> None:
-    for token in get_push_tokens(user_id):
+    try:
+        tokens = get_push_tokens(user_id)
+    except Exception:
+        return
+    for token in tokens:
         send_push_notification(token, title, body, data)
